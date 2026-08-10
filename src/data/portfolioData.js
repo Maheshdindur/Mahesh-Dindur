@@ -9,7 +9,7 @@ export const portfolioData = {
     email: "maheshdindur9740@gmail.com",
     github: "https://github.com/Maheshdindur",
     githubHandle: "@MaheshDindur",
-    linkedin: "https://linkedin.com/in/mahesh-dindur",
+    linkedin: "https://www.linkedin.com/in/mahesh-dindur-20725724a/",
     linkedinHandle: "mahesh-dindur",
     versionTag: "V2026",
     photoUrl: "/profile_card.jpeg"
