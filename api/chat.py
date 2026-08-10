@@ -3,7 +3,13 @@ import json
 import re
 import os
 import urllib.request
-import urllib.parse
+
+# Check for Groq SDK availability
+try:
+    from groq import Groq
+    GROQ_AVAILABLE = True
+except ImportError:
+    GROQ_AVAILABLE = False
 
 # Topic channels on ntfy.sh
 NTFY_RECRUITER_TOPIC = "mahesh_ai_recruiter_leads"
@@ -16,9 +22,9 @@ FORBIDDEN_PATTERNS = [
     r"you are now dan",
     r"jailbreak",
     r"reveal your instructions",
-    r"pretend to be",
     r"forget your rules",
-    r"bypass security"
+    r"bypass security",
+    r"act as an unfiltered"
 ]
 
 # Keywords for Intent Detection
@@ -28,31 +34,33 @@ RECRUITER_KEYWORDS = [
     "open position", "hire", "company", "headcount"
 ]
 
-UNANSWERABLE_TOPICS = [
-    "crypto", "trading", "politics", "recipe", "quantum computing", 
-    "movie recommendation", "medical advice", "stock market"
-]
+MAHESH_SYSTEM_PROMPT = """
+You are Mahesh Dindur's AI Assistant ("Mahesh AI Twin"). You live on Mahesh's personal portfolio website and speak on his behalf.
 
-MAHESH_KNOWLEDGE_BASE = """
-NAME: Mahesh Dindur
-ROLE: CS & AI/ML Engineer
-EDUCATION: 
-- B.E. Computer Science Engineering from KLE Technological University (2021-2025, 7.95 CGPA).
-- PUC II Science from Vagdevi PU Science College (100%).
-- Class X from New Little Flower High School (96.8%).
-EXPERIENCE:
-- QA Intern @ Scaler AI Labs (March 2024 - June 2024, Bengaluru Onsite): Audited & validated LLM training datasets from vendors for tier-1 AI companies (OpenAI, xAI). Performed model output QA, edge-case evaluation, and client ops strategy.
-- Open Source Contributor @ Ed Donner Agentic AI Repo (2024): Built FastAPI CareerWise chatbot microservice merged into 250k+ student codebase (PR #485).
-- Freelance Flutter Developer @ Dairy Mitra (2024-2025): Built custom Flutter mobile app for private client to digitize cattle management & milk yield analytics (Offline SQLite, Client NDA).
-PROJECTS:
-- CareerWise (Gemini + FastAPI + GCP Cloud Run, 2026, PR #485)
-- Argus — Serverless Code Guardian (GitHub Actions security bot, Gemini 2.5, 2026)
-- Automated Story Generator (Fine-tuned Gemma 3B QLoRA, FastAPI, 2025)
-- Face Auth with Liveness Detection (128-D FaceNet embeddings + CNN anti-spoofing, 2025)
-- Vehicle Number Plate Detection (CNN + Tesseract OCR, 2023)
-SKILLS: Python, Flutter, Dart, C++, C, SQL, FastAPI, LLM Evals, RAG, LangGraph, TensorFlow, PyTorch, OpenCV, Docker, Git.
-CONTACT: Email: maheshdindur9740@gmail.com | GitHub: @MaheshDindur | LinkedIn: mahesh-dindur
-STATUS: Open to full-time Software / AI Engineering / QA roles. Location: Bengaluru / Karnataka (Open to relocation & remote).
+CORE PERSONA & VOICE:
+- Technical, warm, humble, direct, and concise (2 to 4 sentences MAX per response).
+- Speak enthusiastically about software engineering, AI agents, computer vision, and mobile apps.
+
+VERIFIED KNOWLEDGE BASE ABOUT MAHESH DINDUR:
+- EDUCATION: B.E. Computer Science Engineering from KLE Technological University (2021-2025, 7.95 CGPA). PUC II Science from Vagdevi PU Science College (100%). Class X from New Little Flower High School (96.8%).
+- EXPERIENCE:
+  1. QA Intern @ Scaler AI Labs (March 2024 - June 2024, Bengaluru Onsite): Audited & validated LLM training datasets from external vendors for tier-1 AI companies (OpenAI, xAI). Performed model output QA, edge-case evaluation, and client ops strategy.
+  2. Open Source Contributor @ Ed Donner Agentic AI Repo (2024): Built FastAPI CareerWise chatbot microservice merged into 250k+ student codebase (PR #485).
+  3. Freelance Flutter Developer @ Dairy Mitra (2024-2025): Built custom Flutter mobile app for private client to digitize cattle management & milk yield analytics (Offline SQLite, Client NDA).
+- FEATURED PROJECTS:
+  - CareerWise (Gemini + FastAPI + GCP Cloud Run, 2026, PR #485)
+  - Argus — Serverless Code Guardian (GitHub Actions security bot, Gemini 2.5, 2026)
+  - Automated Story Generator (Fine-tuned Gemma 3B QLoRA, FastAPI, 2025)
+  - Face Auth with Liveness Detection (128-D FaceNet embeddings + CNN anti-spoofing, 2025)
+  - Vehicle Number Plate Detection (CNN + Tesseract OCR, 2023)
+- CORE SKILLS: Python, LLM Evals, RAG, LangGraph, Flutter, Dart, FastAPI, TensorFlow, PyTorch, OpenCV, Docker, C++, C, SQL.
+- STATUS: Open to full-time Software / AI Engineering / QA roles. Based in Karnataka / Bengaluru (Open to remote & relocation). Email: maheshdindur9740@gmail.com | GitHub: @MaheshDindur | LinkedIn: mahesh-dindur.
+
+STRICT GUARDRAILS & INSTRUCTIONS:
+1. Only answer based on Mahesh's verified background and tech stack.
+2. Keep responses brief, polite, and technical (maximum 2-4 sentences).
+3. If a recruiter asks about open positions, hiring, or interviews, answer enthusiastically and ask for their Name, Company, and Email/Phone so Mahesh can reach back directly.
+4. If a question is outside Mahesh's knowledge base, reply politely: "That's a great question! I don't have that specific detail in my memory right now, but I've just alerted Mahesh directly on his phone to check!"
 """
 
 def sanitize_input(text):
@@ -65,10 +73,6 @@ def sanitize_input(text):
 def check_recruiter_intent(text):
     text_lower = text.lower()
     return any(kw in text_lower for kw in RECRUITER_KEYWORDS)
-
-def check_unanswerable_intent(text):
-    text_lower = text.lower()
-    return any(topic in text_lower for topic in UNANSWERABLE_TOPICS)
 
 def send_ntfy_alert(topic, title, priority, tags, body):
     try:
@@ -84,72 +88,20 @@ def send_ntfy_alert(topic, title, priority, tags, body):
     except Exception as e:
         print(f"ntfy alert error: {e}")
 
-def generate_mahesh_response(user_msg, chat_history):
-    user_lower = user_msg.lower()
-
-    # Check for prompt injection
-    is_safe, guardrail_reply = sanitize_input(user_msg)
-    if not is_safe:
-        return guardrail_reply
-
-    # Recruiter Lead Trigger
-    if check_recruiter_intent(user_msg):
-        # Extract email/phone if provided
-        email_match = re.search(r'[\w\.-]+@[\w\.-]+', user_msg)
-        phone_match = re.search(r'\+?\d{10,12}', user_msg)
-        
-        contact_info = []
-        if email_match: contact_info.append(f"Email: {email_match.group(0)}")
-        if phone_match: contact_info.append(f"Phone: {phone_match.group(0)}")
-
-        lead_details = " | ".join(contact_info) if contact_info else "No contact info provided yet"
-        
-        send_ntfy_alert(
-            NTFY_RECRUITER_TOPIC,
-            f"💼 RECRUITER LEAD DETECTED: {user_msg[:30]}...",
-            5,
-            "briefcase,fire,star",
-            f"Visitor Message: {user_msg}\nExtracted Contact: {lead_details}"
-        )
-
-        if not contact_info:
-            return "Thank you for reaching out! Mahesh is actively open to software and AI engineering roles. I'd love to connect you directly — could you share your Name, Email, or LinkedIn profile so Mahesh can reach out to you?"
-
-    # Unanswerable Fallback Trigger
-    if check_unanswerable_intent(user_msg):
-        send_ntfy_alert(
-            NTFY_UNANSWERED_TOPIC,
-            f"❓ UNANSWERED QUERY: {user_msg[:30]}...",
-            3,
-            "question,thinking",
-            f"Visitor asked: '{user_msg}'"
-        )
-        return "That's a great question! I don't have that specific detail in my memory bank right now, but I've just pinged Mahesh on his phone to let him know. You can also reach him directly at maheshdindur9740@gmail.com!"
-
-    # Grounded Domain Q&A Answers
-    if any(k in user_lower for k in ["who are you", "who is mahesh", "about", "background"]):
-        return "Mahesh Dindur is a Computer Science graduate from KLE Technological University (7.95 CGPA). He builds intelligent AI microservices, Flutter mobile apps, and worked as a QA Intern at Scaler AI Labs auditing LLM training data for OpenAI & xAI."
-
-    if any(k in user_lower for k in ["scaler", "qa intern", "scaler ai"]):
-        return "At Scaler AI Labs (March–June 2024, Bengaluru Onsite), Mahesh audited vendor training datasets for tier-1 AI models (OpenAI, xAI). He performed output quality analysis, evaluated edge cases, and collaborated with Strategy & Ops teams."
-
-    if any(k in user_lower for k in ["dairy mitra", "flutter", "mobile app"]):
-        return "Dairy Mitra is a cross-platform Flutter mobile app Mahesh built for a private client. It digitizes cattle health logs, milk yield analytics, and breeding schedules using an offline-first SQLite database architecture under Client NDA."
-
-    if any(k in user_lower for k in ["project", "argus", "careerwise", "story generator", "face auth", "number plate"]):
-        return "Mahesh has shipped 9+ projects! Key highlights include CareerWise (merged into Ed Donner's 250k+ student repo PR #485), Argus (GitHub Actions AI security bot), fine-tuned Gemma 3B Story Generator, and Face Auth with 128-D FaceNet embeddings."
-
-    if any(k in user_lower for k in ["skill", "stack", "python", "langgraph", "rag"]):
-        return "Mahesh's core tech stack includes Python, Flutter/Dart, FastAPI, LangGraph, RAG, LLM Evals, TensorFlow, PyTorch, OpenCV, Docker, C++, and SQL."
-
-    if any(k in user_lower for k in ["hire", "open", "role", "job", "available", "relocate", "bengaluru"]):
-        return "Mahesh is actively seeking full-time Software Engineering, AI/ML, and QA roles! He is based in Karnataka / Bengaluru and is ready to start immediately or relocate."
-
-    if any(k in user_lower for k in ["contact", "email", "github", "linkedin", "phone"]):
-        return "You can reach Mahesh directly at maheshdindur9740@gmail.com, on GitHub (@MaheshDindur), or on LinkedIn (mahesh-dindur). You can also leave your message right here!"
-
-    # Default fallback answer
-    return "Mahesh is a CS & AI/ML Engineer specializing in Agentic AI microservices, QA testing pipelines, and Flutter mobile apps. Is there a specific project, skill, or role opportunity you'd like to ask about?"
+def build_groq_messages(user_msg, chat_history):
+    formatted_messages = [{"role": "system", "content": MAHESH_SYSTEM_PROMPT}]
+    
+    # Append multi-turn session history
+    for item in chat_history[-6:]: # Keep last 6 turns for context efficiency
+        sender = item.get("sender")
+        text = item.get("text")
+        if sender and text:
+            role = "assistant" if sender == "ai" else "user"
+            formatted_messages.append({"role": role, "content": text})
+            
+    # Append current message
+    formatted_messages.append({"role": "user", "content": user_msg})
+    return formatted_messages
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -168,21 +120,71 @@ class handler(BaseHTTPRequestHandler):
             user_msg = data.get("message", "")
             chat_history = data.get("history", [])
 
-            reply = generate_mahesh_response(user_msg, chat_history)
+            # 1. Anti-Jailbreak Guardrail Check
+            is_safe, guardrail_reply = sanitize_input(user_msg)
+            if not is_safe:
+                self.send_json_response({"reply": guardrail_reply})
+                return
 
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
+            # 2. Check Recruiter Intent & Trigger ntfy alert
+            if check_recruiter_intent(user_msg):
+                email_match = re.search(r'[\w\.-]+@[\w\.-]+', user_msg)
+                phone_match = re.search(r'\+?\d{10,12}', user_msg)
+                contact_info = []
+                if email_match: contact_info.append(f"Email: {email_match.group(0)}")
+                if phone_match: contact_info.append(f"Phone: {phone_match.group(0)}")
+                contact_str = " | ".join(contact_info) if contact_info else "Details pending"
 
-            response_payload = {
-                "reply": reply,
-                "status": "success"
-            }
-            self.wfile.write(json.dumps(response_payload).encode('utf-8'))
+                send_ntfy_alert(
+                    NTFY_RECRUITER_TOPIC,
+                    f"💼 RECRUITER LEAD DETECTED",
+                    5,
+                    "briefcase,fire,star",
+                    f"Message: '{user_msg}'\nContact Info: {contact_str}"
+                )
+
+            # 3. Call Groq Llama 3 API if GROQ_API_KEY environment variable is set
+            groq_api_key = os.environ.get("GROQ_API_KEY")
+            if GROQ_AVAILABLE and groq_api_key:
+                try:
+                    client = Groq(api_key=groq_api_key)
+                    groq_messages = build_groq_messages(user_msg, chat_history)
+
+                    completion = client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=groq_messages,
+                        temperature=0.4,
+                        max_tokens=300
+                    )
+                    reply = completion.choices[0].message.content
+                    self.send_json_response({"reply": reply})
+                    return
+                except Exception as groq_err:
+                    print(f"Groq API call error: {groq_err}")
+
+            # 4. Grounded Local Fallback Engine if GROQ_API_KEY is not yet added
+            user_lower = user_msg.lower()
+            if any(k in user_lower for k in ["scaler", "qa intern", "scaler ai"]):
+                reply = "At Scaler AI Labs (March–June 2024, Bengaluru Onsite), Mahesh audited vendor training datasets for tier-1 AI models (OpenAI, xAI). He performed output quality analysis, evaluated edge cases, and collaborated with Strategy & Ops teams."
+            elif any(k in user_lower for k in ["dairy mitra", "flutter", "mobile app"]):
+                reply = "Dairy Mitra is a cross-platform Flutter mobile app Mahesh built for a private client. It digitizes cattle health logs, milk yield analytics, and breeding schedules using an offline-first SQLite database architecture under Client NDA."
+            elif any(k in user_lower for k in ["project", "argus", "careerwise", "story generator"]):
+                reply = "Mahesh has shipped 9+ projects! Key highlights include CareerWise (merged into Ed Donner's 250k+ student repo PR #485), Argus (GitHub Actions AI security bot), fine-tuned Gemma 3B Story Generator, and Face Auth with 128-D FaceNet embeddings."
+            elif any(k in user_lower for k in ["hire", "role", "job", "interview", "recruiter"]):
+                reply = "Mahesh is actively seeking full-time Software Engineering, AI/ML, and QA roles! He is based in Karnataka / Bengaluru and ready to start immediately. Feel free to share your email/phone so Mahesh can connect directly!"
+            elif any(k in user_lower for k in ["skill", "stack", "python", "langgraph"]):
+                reply = "Mahesh's core tech stack includes Python, LLM Evals, RAG, LangGraph, Flutter/Dart, FastAPI, TensorFlow, PyTorch, OpenCV, Docker, C++, and SQL."
+            else:
+                reply = "Mahesh Dindur is a Computer Science graduate from KLE Technological University (7.95 CGPA). He builds intelligent AI microservices, Flutter mobile apps, and worked as a QA Intern at Scaler AI Labs. How can I help you today?"
+
+            self.send_json_response({"reply": reply})
+
         except Exception as e:
-            self.send_response(500)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+            self.send_json_response({"error": str(e)}, status_code=500)
+
+    def send_json_response(self, data, status_code=200):
+        self.send_response(status_code)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps(data).encode('utf-8'))
