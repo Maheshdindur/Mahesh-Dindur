@@ -14,6 +14,7 @@ import { Contact } from './components/Contact';
 import { Footer } from './components/Footer';
 import { ResumeModal } from './components/ResumeModal';
 import { ProjectModal } from './components/ProjectModal';
+import { ChatbotWidget } from './components/ChatbotWidget';
 
 export const App = () => {
   const [resumeOpen, setResumeOpen] = useState(false);
@@ -54,6 +55,9 @@ export const App = () => {
       </main>
 
       <Footer />
+
+      {/* Floating AI Persona Chatbot Widget */}
+      <ChatbotWidget />
 
       {/* Modals */}
       <ResumeModal
