@@ -1845,4 +1845,53 @@ body {
   color: var(--text-main);
 }
 
+/* Mobile View Responsiveness Enhancements */
+@media (max-width: 640px) {
+  .hero-title {
+    font-size: clamp(2.2rem, 9vw, 3.2rem) !important;
+  }
+  .hero-subtitle {
+    font-size: 0.95rem !important;
+  }
+  .hero-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.6rem !important;
+  }
+  .stat-card {
+    padding: 0.85rem !important;
+  }
+  .stat-value {
+    font-size: 1.5rem !important;
+  }
+  .chatbot-fab {
+    bottom: 16px !important;
+    right: 16px !important;
+    padding: 0.6rem 1rem !important;
+    font-size: 0.8rem !important;
+  }
+  .chatbot-window {
+    bottom: 10px !important;
+    right: 10px !important;
+    left: 10px !important;
+    width: auto !important;
+    height: 82vh !important;
+    border-radius: 20px !important;
+  }
+  .nav-container {
+    padding: 0.6rem 1rem !important;
+  }
+  .btn-say-hi span {
+    display: none;
+  }
+  .btn-say-hi {
+    padding: 0.5rem !important;
+    border-radius: 50% !important;
+  }
+  .project-modal-content, .resume-modal-content {
+    padding: 1.25rem !important;
+    margin: 10px !important;
+  }
+}
+
+
 

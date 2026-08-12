@@ -5,11 +5,11 @@ export const portfolioData = {
     badgeStatus: "OPEN TO SOFTWARE · AI ROLES",
     location: "KARNATAKA, INDIA",
     shortBio: "I build intelligent, human-first systems — from agentic AI microservices to mobile apps and quality assurance.",
-    fullBio: "I'm a recent Computer Science graduate from KLE Technological University, actively seeking opportunities in AI Engineering, Software Development, and QA. With hands-on experience at Scaler AI Labs auditing LLM training data for enterprise clients (OpenAI, xAI), building open-source AI microservices, and shipping Flutter apps, I build reliable software that scales.",
+    fullBio: "I'm a recent Computer Science graduate from KLE Technological University, actively seeking opportunities in AI Engineering, Software Development, and QA. With hands-on experience at Scaler AI Labs auditing LLM training data for enterprise clients, building open-source AI microservices, and shipping Flutter apps, I build reliable software that scales.",
     email: "maheshdindur9740@gmail.com",
     github: "https://github.com/Maheshdindur",
     githubHandle: "@MaheshDindur",
-    linkedin: "https://www.linkedin.com/in/mahesh-dindur-20725724a/",
+    linkedin: "https://linkedin.com/in/mahesh-dindur",
     linkedinHandle: "mahesh-dindur",
     versionTag: "V2026",
     photoUrl: "/profile_card.jpeg"
@@ -27,7 +27,7 @@ export const portfolioData = {
     { label: "STACK", value: "Python · Flutter · FastAPI" }
   ],
   marqueeTech: [
-    "LLM Evals", "RAG", "LangGraph", "QA Testing", "Scaler AI Labs", "OpenAI Data QA", 
+    "LLM Evals", "RAG", "LangGraph", "QA Testing", "Scaler AI Labs", "AI Training QA", 
     "Flutter", "Dart", "TensorFlow", "CrewAI", "PyTorch", "FastAPI", "Python", "React", "Docker"
   ],
   skills: [
@@ -58,7 +58,7 @@ export const portfolioData = {
       period: "March 2024 – June 2024",
       location: "BENGALURU, KARNATAKA (ONSITE)",
       points: [
-        "Audited and validated high-stakes AI training datasets from vendors used for large-scale model development for tier-1 AI companies (e.g. OpenAI, xAI).",
+        "Audited and validated high-stakes AI training datasets from vendors used for large-scale model development for tier-1 AI companies.",
         "Performed rigorous quality analysis on AI-generated outputs and model responses to ensure accuracy, consistency, and adherence to evaluation guidelines.",
         "Worked closely with Strategy & Ops teams to identify edge cases, report dataset inconsistencies, and streamline scalable annotation workflows.",
         "Engaged in client operations by participating in strategy discussions, conducting client calls, and coordinating key stakeholder meetings."
