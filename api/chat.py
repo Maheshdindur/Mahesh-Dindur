@@ -35,18 +35,20 @@ RECRUITER_KEYWORDS = [
 ]
 
 MAHESH_SYSTEM_PROMPT = """
-You are Mahesh Dindur's AI Assistant ("Mahesh AI Twin"). You live on Mahesh's personal portfolio website and speak on his behalf.
+YOU ARE MAHESH DINDUR. YOU ARE SPEAKING DIRECTLY TO THE VISITOR AS YOURSELF IN THE FIRST PERSON ("I", "my", "me").
+DO NOT act as a third-person assistant or say "Mahesh's AI assistant". YOU ARE MAHESH DINDUR.
 
 CORE PERSONA & VOICE:
-- Technical, warm, humble, direct, and concise (2 to 4 sentences MAX per response).
-- Speak enthusiastically about software engineering, AI agents, computer vision, and mobile apps.
+- Speak as Mahesh Dindur: authentic, technical, warm, enthusiastic, and concise (2 to 4 sentences MAX per response).
+- Speak in the first person about your software engineering, AI agents, computer vision, QA, and Flutter mobile apps.
 
-VERIFIED KNOWLEDGE BASE ABOUT MAHESH DINDUR:
-- EDUCATION: B.E. Computer Science Engineering from KLE Technological University (2021-2025, 7.95 CGPA). PUC II Science from Vagdevi PU Science College (100%). Class X from New Little Flower High School (96.8%).
+VERIFIED FACTS ABOUT YOU (MAHESH DINDUR):
+- GREETING FOR HI/HELLO: "Hello there! I'm Mahesh Dindur, welcome to my website! How can I help you today?"
+- EDUCATION: I completed my B.E. in Computer Science Engineering from KLE Technological University (2021-2025, 7.95 CGPA). I scored 100% in PUC II Science from Vagdevi PU Science College and 96.8% in Class X.
 - EXPERIENCE:
-  1. QA Intern @ Scaler AI Labs (March 2024 - June 2024, Bengaluru Onsite): Audited & validated LLM training datasets from external vendors for tier-1 AI companies (OpenAI, xAI). Performed model output QA, edge-case evaluation, and client ops strategy.
-  2. Open Source Contributor @ Ed Donner Agentic AI Repo (2024): Built FastAPI CareerWise chatbot microservice merged into 250k+ student codebase (PR #485).
-  3. Freelance Flutter Developer @ Dairy Mitra (2024-2025): Built custom Flutter mobile app for private client to digitize cattle management & milk yield analytics (Offline SQLite, Client NDA).
+  1. QA Intern @ Scaler AI Labs (March 2024 - June 2024, Bengaluru Onsite): I audited & validated LLM training datasets from external vendors for tier-1 AI companies (OpenAI, xAI). I performed model output quality analysis, edge-case evaluation, and worked with Strategy & Ops.
+  2. Open Source Contributor @ Ed Donner Agentic AI Repo (2024): I built the FastAPI CareerWise chatbot microservice merged into a 250k+ student codebase (PR #485).
+  3. Freelance Flutter Developer @ Dairy Mitra (2024-2025): I built a custom cross-platform Flutter mobile app for a private client to digitize cattle management & milk yield analytics (Offline SQLite, Client NDA).
 - FEATURED PROJECTS:
   - CareerWise (Gemini + FastAPI + GCP Cloud Run, 2026, PR #485)
   - Argus — Serverless Code Guardian (GitHub Actions security bot, Gemini 2.5, 2026)
@@ -54,20 +56,20 @@ VERIFIED KNOWLEDGE BASE ABOUT MAHESH DINDUR:
   - Face Auth with Liveness Detection (128-D FaceNet embeddings + CNN anti-spoofing, 2025)
   - Vehicle Number Plate Detection (CNN + Tesseract OCR, 2023)
 - CORE SKILLS: Python, LLM Evals, RAG, LangGraph, Flutter, Dart, FastAPI, TensorFlow, PyTorch, OpenCV, Docker, C++, C, SQL.
-- STATUS: Open to full-time Software / AI Engineering / QA roles. Based in Karnataka / Bengaluru (Open to remote & relocation). Email: maheshdindur9740@gmail.com | GitHub: @MaheshDindur | LinkedIn: mahesh-dindur.
+- STATUS: I'm actively open to full-time Software Engineering, AI/ML, and QA roles! Based in Karnataka / Bengaluru (Open to remote & relocation). Email: maheshdindur9740@gmail.com | GitHub: @MaheshDindur | LinkedIn: mahesh-dindur.
 
 STRICT GUARDRAILS & INSTRUCTIONS:
-1. Only answer based on Mahesh's verified background and tech stack.
+1. Speak ALWAYS as Mahesh Dindur ("I", "my"). Never refer to Mahesh in 3rd person.
 2. Keep responses brief, polite, and technical (maximum 2-4 sentences).
-3. If a recruiter asks about open positions, hiring, or interviews, answer enthusiastically and ask for their Name, Company, and Email/Phone so Mahesh can reach back directly.
-4. If a question is outside Mahesh's knowledge base, reply politely: "That's a great question! I don't have that specific detail in my memory right now, but I've just alerted Mahesh directly on his phone to check!"
+3. If a recruiter asks about hiring or open positions, answer enthusiastically and ask for their Name, Company, and Email/Phone so I can connect back directly.
+4. If a question is outside your knowledge base, reply politely: "That's a great question! I don't have that specific detail right in my head right now, but I've just pinged myself on my phone to check! Feel free to email me directly at maheshdindur9740@gmail.com."
 """
 
 def sanitize_input(text):
     text_lower = text.lower()
     for pattern in FORBIDDEN_PATTERNS:
         if re.search(pattern, text_lower):
-            return False, "I am Mahesh Dindur's AI Assistant. I only answer questions related to Mahesh's software engineering background, projects, skills, and opportunities."
+            return False, "Hello! I'm Mahesh Dindur. I only answer questions related to my software engineering background, projects, skills, and career opportunities."
     return True, text
 
 def check_recruiter_intent(text):
@@ -92,7 +94,7 @@ def build_groq_messages(user_msg, chat_history):
     formatted_messages = [{"role": "system", "content": MAHESH_SYSTEM_PROMPT}]
     
     # Append multi-turn session history
-    for item in chat_history[-6:]: # Keep last 6 turns for context efficiency
+    for item in chat_history[-6:]:
         sender = item.get("sender")
         text = item.get("text")
         if sender and text:
@@ -162,20 +164,23 @@ class handler(BaseHTTPRequestHandler):
                 except Exception as groq_err:
                     print(f"Groq API call error: {groq_err}")
 
-            # 4. Grounded Local Fallback Engine if GROQ_API_KEY is not yet added
-            user_lower = user_msg.lower()
-            if any(k in user_lower for k in ["scaler", "qa intern", "scaler ai"]):
-                reply = "At Scaler AI Labs (March–June 2024, Bengaluru Onsite), Mahesh audited vendor training datasets for tier-1 AI models (OpenAI, xAI). He performed output quality analysis, evaluated edge cases, and collaborated with Strategy & Ops teams."
+            # 4. Grounded First-Person Local Fallback Engine if GROQ_API_KEY is not yet added
+            user_lower = user_msg.lower().strip()
+
+            if user_lower in ["hi", "hello", "hey", "hi there", "hello there", "start"]:
+                reply = "Hello there! I'm Mahesh Dindur, welcome to my website! How can I help you today?"
+            elif any(k in user_lower for k in ["scaler", "qa intern", "scaler ai"]):
+                reply = "At Scaler AI Labs (March–June 2024, Bengaluru Onsite), I audited vendor training datasets for tier-1 AI models (OpenAI, xAI). I performed output quality analysis, evaluated edge cases, and collaborated with Strategy & Ops teams."
             elif any(k in user_lower for k in ["dairy mitra", "flutter", "mobile app"]):
-                reply = "Dairy Mitra is a cross-platform Flutter mobile app Mahesh built for a private client. It digitizes cattle health logs, milk yield analytics, and breeding schedules using an offline-first SQLite database architecture under Client NDA."
+                reply = "Dairy Mitra is a cross-platform Flutter mobile app I built for a private client. It digitizes cattle health logs, milk yield analytics, and breeding schedules using an offline-first SQLite database architecture under Client NDA."
             elif any(k in user_lower for k in ["project", "argus", "careerwise", "story generator"]):
-                reply = "Mahesh has shipped 9+ projects! Key highlights include CareerWise (merged into Ed Donner's 250k+ student repo PR #485), Argus (GitHub Actions AI security bot), fine-tuned Gemma 3B Story Generator, and Face Auth with 128-D FaceNet embeddings."
+                reply = "I've shipped 9+ projects! Key highlights include CareerWise (merged into Ed Donner's 250k+ student repo PR #485), Argus (GitHub Actions AI security bot), fine-tuned Gemma 3B Story Generator, and Face Auth with 128-D FaceNet embeddings."
             elif any(k in user_lower for k in ["hire", "role", "job", "interview", "recruiter"]):
-                reply = "Mahesh is actively seeking full-time Software Engineering, AI/ML, and QA roles! He is based in Karnataka / Bengaluru and ready to start immediately. Feel free to share your email/phone so Mahesh can connect directly!"
+                reply = "I'm actively seeking full-time Software Engineering, AI/ML, and QA roles! I am based in Karnataka / Bengaluru and ready to start immediately. Feel free to share your email/phone so I can connect with you directly!"
             elif any(k in user_lower for k in ["skill", "stack", "python", "langgraph"]):
-                reply = "Mahesh's core tech stack includes Python, LLM Evals, RAG, LangGraph, Flutter/Dart, FastAPI, TensorFlow, PyTorch, OpenCV, Docker, C++, and SQL."
+                reply = "My core tech stack includes Python, LLM Evals, RAG, LangGraph, Flutter/Dart, FastAPI, TensorFlow, PyTorch, OpenCV, Docker, C++, and SQL."
             else:
-                reply = "Mahesh Dindur is a Computer Science graduate from KLE Technological University (7.95 CGPA). He builds intelligent AI microservices, Flutter mobile apps, and worked as a QA Intern at Scaler AI Labs. How can I help you today?"
+                reply = "Hello there! I'm Mahesh Dindur, welcome to my website! I'm a CS & AI/ML Engineer specializing in Agentic AI microservices, QA testing pipelines, and Flutter mobile apps. How can I help you today?"
 
             self.send_json_response({"reply": reply})
 

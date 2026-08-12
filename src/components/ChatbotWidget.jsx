@@ -4,15 +4,11 @@ import { portfolioData } from '../data/portfolioData';
 
 export const ChatbotWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    {
-      sender: 'ai',
-      text: "Hi there! 👋 I'm Mahesh Dindur's AI Assistant. Ask me anything about Mahesh's AI engineering background, Scaler AI Labs internship, Flutter apps, or job opportunities!"
-    }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [isRecruiterMode, setIsRecruiterMode] = useState(false);
+  const [showGreetingTooltip, setShowGreetingTooltip] = useState(true);
 
   const messagesEndRef = useRef(null);
 
@@ -24,11 +20,47 @@ export const ChatbotWidget = () => {
     scrollToBottom();
   }, [messages, loading]);
 
+  // Initial silent "hi" trigger on landing
+  useEffect(() => {
+    let isMounted = true;
+    const fetchInitialGreeting = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: 'hi', history: [] })
+        });
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          setMessages([
+            { sender: 'ai', text: data.reply || "Hello there! I'm Mahesh Dindur, welcome to my website! How can I help you today?" }
+          ]);
+        } else if (isMounted) {
+          setMessages([
+            { sender: 'ai', text: "Hello there! I'm Mahesh Dindur, welcome to my website! How can I help you today?" }
+          ]);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setMessages([
+            { sender: 'ai', text: "Hello there! I'm Mahesh Dindur, welcome to my website! How can I help you today?" }
+          ]);
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchInitialGreeting();
+    return () => { isMounted = false; };
+  }, []);
+
   const quickPrompts = [
-    "Tell me about Mahesh",
-    "What AI projects has he built?",
+    "Tell me about yourself",
+    "What AI projects have you built?",
     "Tell me about Scaler AI Labs QA internship",
-    "Are you open to full-time roles?"
+    "Are you open for full-time roles?"
   ];
 
   const handleSend = async (textToSend) => {
@@ -40,14 +72,12 @@ export const ChatbotWidget = () => {
     if (!textToSend) setInput('');
     setLoading(true);
 
-    // Check recruiter intent on client as well for badge
-    const queryLower = query.lower ? query.lower() : query.toLowerCase();
+    const queryLower = query.toLowerCase();
     if (["hiring", "interview", "recruiter", "job role", "full time", "open position"].some(k => queryLower.includes(k))) {
       setIsRecruiterMode(true);
     }
 
     try {
-      // Call Vercel Serverless Function / API
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -59,13 +89,11 @@ export const ChatbotWidget = () => {
 
       if (res.ok) {
         const data = await res.json();
-        simulateTokenStream(data.reply || "I'm Mahesh's AI assistant! How can I help you today?");
+        simulateTokenStream(data.reply || "I'm Mahesh Dindur! How can I help you today?");
       } else {
-        // Fallback local response generator if running dev server without serverless API
         simulateLocalFallbackResponse(query);
       }
     } catch (err) {
-      console.warn("API stream error, using local fallback engine:", err);
       simulateLocalFallbackResponse(query);
     } finally {
       setLoading(false);
@@ -77,7 +105,6 @@ export const ChatbotWidget = () => {
     const words = fullReply.split(' ');
     let wordIndex = 0;
 
-    // Add empty AI message
     setMessages((prev) => [...prev, { sender: 'ai', text: '' }]);
 
     const interval = setInterval(() => {
@@ -93,42 +120,70 @@ export const ChatbotWidget = () => {
       } else {
         clearInterval(interval);
       }
-    }, 40); // 40ms per word streaming effect
+    }, 35);
   };
 
   const simulateLocalFallbackResponse = (userMsg) => {
     const lower = userMsg.toLowerCase();
-    let reply = "Mahesh Dindur is a Computer Science graduate from KLE Technological University (7.95 CGPA). He builds intelligent AI microservices, Flutter mobile apps, and worked as a QA Intern at Scaler AI Labs auditing LLM training data for OpenAI & xAI.";
+    let reply = "Hello there! I'm Mahesh Dindur, a Computer Science graduate from KLE Technological University (7.95 CGPA). I build intelligent AI microservices, Flutter mobile apps, and worked as a QA Intern at Scaler AI Labs auditing LLM training data for OpenAI & xAI.";
 
     if (lower.includes("scaler") || lower.includes("qa")) {
-      reply = "At Scaler AI Labs (March–June 2024, Bengaluru Onsite), Mahesh audited vendor training datasets for tier-1 AI models (OpenAI, xAI). He performed output quality analysis, evaluated edge cases, and collaborated with Strategy & Ops teams.";
+      reply = "At Scaler AI Labs (March–June 2024, Bengaluru Onsite), I audited vendor training datasets for tier-1 AI models (OpenAI, xAI). I performed output quality analysis, evaluated edge cases, and collaborated with Strategy & Ops teams.";
     } else if (lower.includes("project") || lower.includes("argus") || lower.includes("careerwise") || lower.includes("story")) {
-      reply = "Mahesh has shipped 9+ projects! Key highlights include CareerWise (merged into Ed Donner's 250k+ student repo PR #485), Argus (GitHub Actions AI security bot), fine-tuned Gemma 3B Story Generator, and Face Auth with 128-D FaceNet embeddings.";
+      reply = "I've shipped 9+ projects! Key highlights include CareerWise (merged into Ed Donner's 250k+ student repo PR #485), Argus (GitHub Actions AI security bot), fine-tuned Gemma 3B Story Generator, and Face Auth with 128-D FaceNet embeddings.";
     } else if (lower.includes("hire") || lower.includes("role") || lower.includes("job") || lower.includes("interview") || lower.includes("recruiter")) {
-      reply = "Mahesh is actively seeking full-time Software Engineering, AI/ML, and QA roles! He is based in Karnataka / Bengaluru and ready to start immediately. Feel free to leave your contact details or email him at maheshdindur9740@gmail.com!";
+      reply = "I'm actively seeking full-time Software Engineering, AI/ML, and QA roles! I am based in Karnataka / Bengaluru and ready to start immediately. Feel free to share your email/phone so I can connect with you directly!";
       setIsRecruiterMode(true);
     } else if (lower.includes("skill") || lower.includes("stack") || lower.includes("python") || lower.includes("flutter")) {
-      reply = "Mahesh's core tech stack includes Python, Flutter/Dart, FastAPI, LangGraph, RAG, LLM Evals, TensorFlow, PyTorch, OpenCV, Docker, C++, and SQL.";
+      reply = "My core tech stack includes Python, LLM Evals, RAG, LangGraph, Flutter/Dart, FastAPI, TensorFlow, PyTorch, OpenCV, Docker, C++, and SQL.";
     } else if (lower.includes("dairy mitra")) {
-      reply = "Dairy Mitra is a cross-platform Flutter mobile app Mahesh built for a private client. It digitizes cattle health logs, milk yield analytics, and breeding schedules using an offline-first SQLite database architecture under Client NDA.";
+      reply = "Dairy Mitra is a cross-platform Flutter mobile app I built for a private client. It digitizes cattle health logs, milk yield analytics, and breeding schedules using an offline-first SQLite database architecture under Client NDA.";
     }
 
     simulateTokenStream(reply);
   };
 
+  const handleToggle = () => {
+    setIsOpen(!isOpen);
+    if (showGreetingTooltip) setShowGreetingTooltip(false);
+  };
+
   return (
     <>
+      {/* Floating Greeting Tooltip preview on landing */}
+      {!isOpen && showGreetingTooltip && (
+        <div
+          className="chatbot-landing-tooltip"
+          onClick={handleToggle}
+        >
+          <span>👋 Hello there! I'm Mahesh Dindur, ask me anything!</span>
+          <button
+            className="tooltip-close-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowGreetingTooltip(false);
+            }}
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
+
       {/* Floating Toggle Button */}
       <button
         className="chatbot-fab"
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label="Toggle Mahesh AI Chatbot"
+        onClick={handleToggle}
+        aria-label="Talk with Mahesh Dindur AI"
       >
         <div className="fab-avatar-badge">
-          <Bot size={22} style={{ color: '#ffffff' }} />
+          <img
+            src={portfolioData.personal.photoUrl}
+            alt="Mahesh Dindur"
+            style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+          />
           <span className="fab-online-dot" />
         </div>
-        <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>Ask Mahesh AI</span>
+        <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>Chat with Mahesh</span>
         <Sparkles size={16} style={{ color: 'var(--accent-warm)' }} />
       </button>
 
@@ -142,14 +197,14 @@ export const ChatbotWidget = () => {
                 <img
                   src={portfolioData.personal.photoUrl}
                   alt="Mahesh Dindur"
-                  style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-warm)' }}
+                  style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-warm)' }}
                 />
                 <span className="fab-online-dot" style={{ right: 0, bottom: 0 }} />
               </div>
               <div>
                 <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>Mahesh AI Twin</span>
-                  <span className="bento-pill" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>V1.0</span>
+                  <span>Mahesh Dindur</span>
+                  <span className="bento-pill" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>AI Twin</span>
                 </h4>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
                   {isRecruiterMode ? '💼 Recruiter Lead Mode Active' : 'Online · Grounded Portfolio AI'}
@@ -178,9 +233,11 @@ export const ChatbotWidget = () => {
                 className={`chat-bubble-wrapper ${msg.sender === 'user' ? 'user-msg' : 'ai-msg'}`}
               >
                 {msg.sender === 'ai' && (
-                  <div className="chat-avatar-mini">
-                    <Bot size={14} />
-                  </div>
+                  <img
+                    src={portfolioData.personal.photoUrl}
+                    alt="Mahesh"
+                    style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                  />
                 )}
 
                 <div className={`chat-bubble ${msg.sender === 'user' ? 'bubble-user' : 'bubble-ai'}`}>
@@ -218,7 +275,7 @@ export const ChatbotWidget = () => {
           >
             <input
               type="text"
-              placeholder="Ask about Mahesh's skills, projects, or roles..."
+              placeholder="Ask me anything about my skills, projects, or roles..."
               className="chatbot-input"
               value={input}
               onChange={(e) => setInput(e.target.value)}

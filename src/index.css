@@ -1804,3 +1804,45 @@ body {
   100% { transform: rotate(360deg); }
 }
 
+.chatbot-landing-tooltip {
+  position: fixed;
+  bottom: 80px;
+  right: 28px;
+  z-index: 998;
+  background: rgba(15, 19, 28, 0.95);
+  border: 1px solid var(--accent-warm);
+  color: var(--text-main);
+  padding: 0.65rem 1.1rem;
+  border-radius: 16px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  animation: tooltipBounce 3s ease-in-out infinite;
+}
+
+@keyframes tooltipBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.tooltip-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+}
+
+.tooltip-close-btn:hover {
+  color: var(--text-main);
+}
+
+
