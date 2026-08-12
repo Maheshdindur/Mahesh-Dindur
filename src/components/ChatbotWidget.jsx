@@ -8,7 +8,7 @@ export const ChatbotWidget = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [isRecruiterMode, setIsRecruiterMode] = useState(false);
-  const [showGreetingTooltip, setShowGreetingTooltip] = useState(true);
+  const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
   const messagesEndRef = useRef(null);
 
@@ -20,39 +20,58 @@ export const ChatbotWidget = () => {
     scrollToBottom();
   }, [messages, loading]);
 
-  // Initial silent "hi" trigger on landing
+  // Silent "hi" trigger on landing -> Auto-opens chat window with LLM response
   useEffect(() => {
     let isMounted = true;
-    const fetchInitialGreeting = async () => {
+    const triggerLandingGreeting = async () => {
       setLoading(true);
+      const fallbackGreeting = "Hello there! I'm Mahesh Dindur, welcome to my website! How can I help you today?";
+
       try {
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: 'hi', history: [] })
         });
-        if (res.ok && isMounted) {
+
+        let aiReply = fallbackGreeting;
+        if (res.ok) {
           const data = await res.json();
-          setMessages([
-            { sender: 'ai', text: data.reply || "Hello there! I'm Mahesh Dindur, welcome to my website! How can I help you today?" }
-          ]);
-        } else if (isMounted) {
-          setMessages([
-            { sender: 'ai', text: "Hello there! I'm Mahesh Dindur, welcome to my website! How can I help you today?" }
-          ]);
+          if (data.reply) aiReply = data.reply;
+        }
+
+        if (isMounted) {
+          // Add AI greeting to transcript (Initial "hi" is 100% hidden)
+          setMessages([{ sender: 'ai', text: aiReply }]);
+
+          // Auto-open chatbot window on landing when AI response returns
+          if (!hasAutoOpened) {
+            setTimeout(() => {
+              if (isMounted) {
+                setIsOpen(true);
+                setHasAutoOpened(true);
+              }
+            }, 800);
+          }
         }
       } catch (err) {
         if (isMounted) {
-          setMessages([
-            { sender: 'ai', text: "Hello there! I'm Mahesh Dindur, welcome to my website! How can I help you today?" }
-          ]);
+          setMessages([{ sender: 'ai', text: fallbackGreeting }]);
+          if (!hasAutoOpened) {
+            setTimeout(() => {
+              if (isMounted) {
+                setIsOpen(true);
+                setHasAutoOpened(true);
+              }
+            }, 800);
+          }
         }
       } finally {
         if (isMounted) setLoading(false);
       }
     };
 
-    fetchInitialGreeting();
+    triggerLandingGreeting();
     return () => { isMounted = false; };
   }, []);
 
@@ -143,36 +162,12 @@ export const ChatbotWidget = () => {
     simulateTokenStream(reply);
   };
 
-  const handleToggle = () => {
-    setIsOpen(!isOpen);
-    if (showGreetingTooltip) setShowGreetingTooltip(false);
-  };
-
   return (
     <>
-      {/* Floating Greeting Tooltip preview on landing */}
-      {!isOpen && showGreetingTooltip && (
-        <div
-          className="chatbot-landing-tooltip"
-          onClick={handleToggle}
-        >
-          <span>👋 Hello there! I'm Mahesh Dindur, ask me anything!</span>
-          <button
-            className="tooltip-close-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowGreetingTooltip(false);
-            }}
-          >
-            <X size={12} />
-          </button>
-        </div>
-      )}
-
       {/* Floating Toggle Button */}
       <button
         className="chatbot-fab"
-        onClick={handleToggle}
+        onClick={() => setIsOpen(!isOpen)}
         aria-label="Talk with Mahesh Dindur AI"
       >
         <div className="fab-avatar-badge">
@@ -187,7 +182,7 @@ export const ChatbotWidget = () => {
         <Sparkles size={16} style={{ color: 'var(--accent-warm)' }} />
       </button>
 
-      {/* Chat Window Popup */}
+      {/* Chat Window Popup (Auto-opens on landing when AI greets) */}
       {isOpen && (
         <div className="chatbot-window">
           {/* Header */}
