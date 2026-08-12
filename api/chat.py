@@ -4,15 +4,17 @@ import re
 import os
 import urllib.request
 
-# Unified topic channel on ntfy.sh so Mahesh receives ALL alerts in one ntfy app subscription!
-NTFY_MAIN_TOPIC = "mahesh_dindur_portfolio_messages"
-
 # Check for Groq SDK availability
 try:
     from groq import Groq
     GROQ_AVAILABLE = True
 except ImportError:
     GROQ_AVAILABLE = False
+
+# 3 Separate Topic Channels on ntfy.sh
+NTFY_RECRUITER_TOPIC = "mahesh_ai_recruiter_leads"
+NTFY_UNANSWERED_TOPIC = "mahesh_ai_unanswered_questions"
+NTFY_CONTACT_TOPIC = "mahesh_dindur_portfolio_messages"
 
 # 🛡️ Guardrail Rules: Block Jailbreaks & Prompt Injections
 FORBIDDEN_PATTERNS = [
@@ -68,7 +70,7 @@ STRICT GUARDRAILS & INSTRUCTIONS:
 1. Speak ALWAYS as Mahesh Dindur ("I", "my"). Never refer to Mahesh in 3rd person.
 2. Keep responses brief, polite, and technical (maximum 2-4 sentences).
 3. If a recruiter asks about hiring, open positions, or provides their contact details (Name, Phone, Email), thank them warmly and confirm that I will reach out directly.
-4. If a question is outside your knowledge base or unrelated to your background, reply politely: "That's a great question! I don't have that specific detail right in my memory right now, but I've just pinged myself on my phone to check! Feel free to email me directly at maheshdindur9740@gmail.com."
+4. If a question is outside your knowledge base or unrelated to your background, reply politely: "That's a great question! I don't have that specific detail right in my head right now, but I've just pinged myself on my phone to check! Feel free to email me directly at maheshdindur9740@gmail.com."
 """
 
 def sanitize_input(text):
@@ -139,7 +141,7 @@ class handler(BaseHTTPRequestHandler):
                 self.send_json_response({"reply": guardrail_reply})
                 return
 
-            # 2. Trigger ntfy alert for Recruiter / Lead Generation
+            # 2. Trigger ntfy alert for Recruiter / Lead Generation -> mahesh_ai_recruiter_leads
             if is_lead_intent(user_msg):
                 email_match = re.search(r'[\w\.-]+@[\w\.-]+', user_msg)
                 phone_match = re.search(r'\b\d{8,12}\b|\+?\d{10,12}', user_msg)
@@ -149,17 +151,17 @@ class handler(BaseHTTPRequestHandler):
                 contact_str = " | ".join(contact_info) if contact_info else "Lead info received"
 
                 send_ntfy_alert(
-                    NTFY_MAIN_TOPIC,
+                    NTFY_RECRUITER_TOPIC,
                     f"💼 RECRUITER / LEAD ALERT",
                     5,
                     "briefcase,fire,star",
                     f"Message: '{user_msg}'\nExtracted Contact: {contact_str}"
                 )
 
-            # 3. Trigger ntfy alert for Unanswered / Out-of-Scope Questions
+            # 3. Trigger ntfy alert for Unanswered Questions -> mahesh_ai_unanswered_questions
             elif is_unanswered_intent(user_msg):
                 send_ntfy_alert(
-                    NTFY_MAIN_TOPIC,
+                    NTFY_UNANSWERED_TOPIC,
                     f"❓ UNANSWERED QUESTION ALERT",
                     3,
                     "question,thinking",
