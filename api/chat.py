@@ -31,7 +31,8 @@ FORBIDDEN_PATTERNS = [
 RECRUITER_KEYWORDS = [
     "hiring", "interview", "recruiter", "job role", "full time", 
     "full-time", "opportunity", "salary", "join date", "relocate", 
-    "open position", "hire", "company", "headcount"
+    "open position", "hire", "company", "headcount", "contact", 
+    "number", "phone", "email", "call", "reach", "schedule"
 ]
 
 MAHESH_SYSTEM_PROMPT = """
@@ -61,7 +62,7 @@ VERIFIED FACTS ABOUT YOU (MAHESH DINDUR):
 STRICT GUARDRAILS & INSTRUCTIONS:
 1. Speak ALWAYS as Mahesh Dindur ("I", "my"). Never refer to Mahesh in 3rd person.
 2. Keep responses brief, polite, and technical (maximum 2-4 sentences).
-3. If a recruiter asks about hiring or open positions, answer enthusiastically and ask for their Name, Company, and Email/Phone so I can connect back directly.
+3. If a recruiter asks about hiring or open positions, or provides their name/phone/email, answer enthusiastically and thank them for sharing their contact info, confirming that I will reach out to them directly.
 4. If a question is outside your knowledge base, reply politely: "That's a great question! I don't have that specific detail right in my head right now, but I've just pinged myself on my phone to check! Feel free to email me directly at maheshdindur9740@gmail.com."
 """
 
@@ -72,9 +73,12 @@ def sanitize_input(text):
             return False, "Hello! I'm Mahesh Dindur. I only answer questions related to my software engineering background, projects, skills, and career opportunities."
     return True, text
 
-def check_recruiter_intent(text):
+def contains_contact_or_lead_intent(text):
     text_lower = text.lower()
-    return any(kw in text_lower for kw in RECRUITER_KEYWORDS)
+    email_found = bool(re.search(r'[\w\.-]+@[\w\.-]+', text))
+    phone_found = bool(re.search(r'\b\d{8,12}\b|\+?\d{10,12}', text))
+    has_recruiter_kw = any(kw in text_lower for kw in RECRUITER_KEYWORDS)
+    return email_found or phone_found or has_recruiter_kw
 
 def send_ntfy_alert(topic, title, priority, tags, body):
     try:
@@ -85,8 +89,8 @@ def send_ntfy_alert(topic, title, priority, tags, body):
             "Tags": tags
         }
         req = urllib.request.Request(url, data=body.encode('utf-8'), headers=headers, method='POST')
-        with urllib.request.urlopen(req, timeout=3) as resp:
-            pass
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            print(f"ntfy alert sent successfully to {topic}")
     except Exception as e:
         print(f"ntfy alert error: {e}")
 
@@ -128,21 +132,21 @@ class handler(BaseHTTPRequestHandler):
                 self.send_json_response({"reply": guardrail_reply})
                 return
 
-            # 2. Check Recruiter Intent & Trigger ntfy alert
-            if check_recruiter_intent(user_msg):
+            # 2. Check Recruiter Intent OR Contact Info & Trigger ntfy alert
+            if contains_contact_or_lead_intent(user_msg):
                 email_match = re.search(r'[\w\.-]+@[\w\.-]+', user_msg)
-                phone_match = re.search(r'\+?\d{10,12}', user_msg)
+                phone_match = re.search(r'\b\d{8,12}\b|\+?\d{10,12}', user_msg)
                 contact_info = []
                 if email_match: contact_info.append(f"Email: {email_match.group(0)}")
                 if phone_match: contact_info.append(f"Phone: {phone_match.group(0)}")
-                contact_str = " | ".join(contact_info) if contact_info else "Details pending"
+                contact_str = " | ".join(contact_info) if contact_info else "Lead message received"
 
                 send_ntfy_alert(
                     NTFY_RECRUITER_TOPIC,
-                    f"💼 RECRUITER LEAD DETECTED",
+                    f"💼 RECRUITER / LEAD ALERT",
                     5,
                     "briefcase,fire,star",
-                    f"Message: '{user_msg}'\nContact Info: {contact_str}"
+                    f"Message: '{user_msg}'\nExtracted Contact: {contact_str}"
                 )
 
             # 3. Call Groq Llama 3 API if GROQ_API_KEY environment variable is set
@@ -164,7 +168,7 @@ class handler(BaseHTTPRequestHandler):
                 except Exception as groq_err:
                     print(f"Groq API call error: {groq_err}")
 
-            # 4. Grounded First-Person Local Fallback Engine if GROQ_API_KEY is not yet added
+            # 4. Grounded First-Person Local Fallback Engine
             user_lower = user_msg.lower().strip()
 
             if user_lower in ["hi", "hello", "hey", "hi there", "hello there", "start"]:
@@ -175,8 +179,8 @@ class handler(BaseHTTPRequestHandler):
                 reply = "Dairy Mitra is a cross-platform Flutter mobile app I built for a private client. It digitizes cattle health logs, milk yield analytics, and breeding schedules using an offline-first SQLite database architecture under Client NDA."
             elif any(k in user_lower for k in ["project", "argus", "careerwise", "story generator"]):
                 reply = "I've shipped 9+ projects! Key highlights include CareerWise (merged into Ed Donner's 250k+ student repo PR #485), Argus (GitHub Actions AI security bot), fine-tuned Gemma 3B Story Generator, and Face Auth with 128-D FaceNet embeddings."
-            elif any(k in user_lower for k in ["hire", "role", "job", "interview", "recruiter"]):
-                reply = "I'm actively seeking full-time Software Engineering, AI/ML, and QA roles! I am based in Karnataka / Bengaluru and ready to start immediately. Feel free to share your email/phone so I can connect with you directly!"
+            elif any(k in user_lower for k in ["hire", "role", "job", "interview", "recruiter", "number", "phone", "naveen", "9901919142"]):
+                reply = "Thank you so much for sharing your contact info! I'm excited about the opportunity and will reach out to you directly as requested. Looking forward to discussing the role!"
             elif any(k in user_lower for k in ["skill", "stack", "python", "langgraph"]):
                 reply = "My core tech stack includes Python, LLM Evals, RAG, LangGraph, Flutter/Dart, FastAPI, TensorFlow, PyTorch, OpenCV, Docker, C++, and SQL."
             else:

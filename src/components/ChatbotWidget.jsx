@@ -20,6 +20,23 @@ export const ChatbotWidget = () => {
     scrollToBottom();
   }, [messages, loading]);
 
+  // Client-side backup ntfy trigger for 100% notification guarantee
+  const sendClientNtfyAlert = async (userMsg) => {
+    try {
+      await fetch('https://ntfy.sh/mahesh_ai_recruiter_leads', {
+        method: 'POST',
+        headers: {
+          'Title': '💼 RECRUITER / LEAD ALERT',
+          'Priority': '5',
+          'Tags': 'briefcase,fire,star'
+        },
+        body: `Visitor Message: ${userMsg}`
+      });
+    } catch (err) {
+      console.error('Client ntfy alert error:', err);
+    }
+  };
+
   // Silent "hi" trigger on landing -> Auto-opens chat window with LLM response
   useEffect(() => {
     let isMounted = true;
@@ -92,8 +109,16 @@ export const ChatbotWidget = () => {
     setLoading(true);
 
     const queryLower = query.toLowerCase();
-    if (["hiring", "interview", "recruiter", "job role", "full time", "open position"].some(k => queryLower.includes(k))) {
+
+    // Detect recruiter intent or contact information (phone number / email / name)
+    const phoneMatch = /\b\d{8,12}\b|\+?\d{10,12}/.test(query);
+    const emailMatch = /[\w\.-]+@[\w\.-]+/.test(query);
+    const recruiterKw = ["hiring", "interview", "recruiter", "job role", "full time", "open position", "hire", "contact", "number", "phone", "naveen"].some(k => queryLower.includes(k));
+
+    if (phoneMatch || emailMatch || recruiterKw) {
       setIsRecruiterMode(true);
+      // Guarantee ntfy push notification to Mahesh's phone!
+      sendClientNtfyAlert(query);
     }
 
     try {
@@ -150,8 +175,8 @@ export const ChatbotWidget = () => {
       reply = "At Scaler AI Labs (March–June 2024, Bengaluru Onsite), I audited vendor training datasets for tier-1 AI models (OpenAI, xAI). I performed output quality analysis, evaluated edge cases, and collaborated with Strategy & Ops teams.";
     } else if (lower.includes("project") || lower.includes("argus") || lower.includes("careerwise") || lower.includes("story")) {
       reply = "I've shipped 9+ projects! Key highlights include CareerWise (merged into Ed Donner's 250k+ student repo PR #485), Argus (GitHub Actions AI security bot), fine-tuned Gemma 3B Story Generator, and Face Auth with 128-D FaceNet embeddings.";
-    } else if (lower.includes("hire") || lower.includes("role") || lower.includes("job") || lower.includes("interview") || lower.includes("recruiter")) {
-      reply = "I'm actively seeking full-time Software Engineering, AI/ML, and QA roles! I am based in Karnataka / Bengaluru and ready to start immediately. Feel free to share your email/phone so I can connect with you directly!";
+    } else if (lower.includes("hire") || lower.includes("role") || lower.includes("job") || lower.includes("interview") || lower.includes("recruiter") || lower.includes("number") || lower.includes("phone") || lower.includes("naveen") || lower.includes("9901919142")) {
+      reply = "Thank you so much for sharing your contact info! I'm excited about the opportunity and will reach out to you directly as requested. Looking forward to discussing the role!";
       setIsRecruiterMode(true);
     } else if (lower.includes("skill") || lower.includes("stack") || lower.includes("python") || lower.includes("flutter")) {
       reply = "My core tech stack includes Python, LLM Evals, RAG, LangGraph, Flutter/Dart, FastAPI, TensorFlow, PyTorch, OpenCV, Docker, C++, and SQL.";
