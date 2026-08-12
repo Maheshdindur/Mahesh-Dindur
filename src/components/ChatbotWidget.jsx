@@ -20,15 +20,15 @@ export const ChatbotWidget = () => {
     scrollToBottom();
   }, [messages, loading]);
 
-  // Client-side backup ntfy trigger for 100% notification guarantee
-  const sendClientNtfyAlert = async (userMsg) => {
+  // Client-side backup ntfy trigger sent directly to mahesh_dindur_portfolio_messages
+  const sendClientNtfyAlert = async (userMsg, title = '💼 RECRUITER / LEAD ALERT', tags = 'briefcase,fire,star') => {
     try {
-      await fetch('https://ntfy.sh/mahesh_ai_recruiter_leads', {
+      await fetch('https://ntfy.sh/mahesh_dindur_portfolio_messages', {
         method: 'POST',
         headers: {
-          'Title': '💼 RECRUITER / LEAD ALERT',
+          'Title': title,
           'Priority': '5',
-          'Tags': 'briefcase,fire,star'
+          'Tags': tags
         },
         body: `Visitor Message: ${userMsg}`
       });
@@ -114,11 +114,15 @@ export const ChatbotWidget = () => {
     const phoneMatch = /\b\d{8,12}\b|\+?\d{10,12}/.test(query);
     const emailMatch = /[\w\.-]+@[\w\.-]+/.test(query);
     const recruiterKw = ["hiring", "interview", "recruiter", "job role", "full time", "open position", "hire", "contact", "number", "phone", "naveen"].some(k => queryLower.includes(k));
+    const unansweredKw = ["recipe", "crypto", "bitcoin", "weather", "politics", "stock price", "quantum"].some(k => queryLower.includes(k));
 
     if (phoneMatch || emailMatch || recruiterKw) {
       setIsRecruiterMode(true);
-      // Guarantee ntfy push notification to Mahesh's phone!
-      sendClientNtfyAlert(query);
+      // Send instant push notification to Mahesh's phone!
+      sendClientNtfyAlert(query, '💼 RECRUITER / LEAD ALERT', 'briefcase,fire,star');
+    } else if (unansweredKw) {
+      // Send unanswered question alert to Mahesh's phone!
+      sendClientNtfyAlert(query, '❓ UNANSWERED QUESTION ALERT', 'question,thinking');
     }
 
     try {
@@ -178,6 +182,8 @@ export const ChatbotWidget = () => {
     } else if (lower.includes("hire") || lower.includes("role") || lower.includes("job") || lower.includes("interview") || lower.includes("recruiter") || lower.includes("number") || lower.includes("phone") || lower.includes("naveen") || lower.includes("9901919142")) {
       reply = "Thank you so much for sharing your contact info! I'm excited about the opportunity and will reach out to you directly as requested. Looking forward to discussing the role!";
       setIsRecruiterMode(true);
+    } else if (["recipe", "crypto", "bitcoin", "weather", "politics", "stock price", "quantum"].some(k => lower.includes(k))) {
+      reply = "That's a great question! I don't have that specific detail right in my head right now, but I've just pinged myself on my phone to check! Feel free to email me directly at maheshdindur9740@gmail.com.";
     } else if (lower.includes("skill") || lower.includes("stack") || lower.includes("python") || lower.includes("flutter")) {
       reply = "My core tech stack includes Python, LLM Evals, RAG, LangGraph, Flutter/Dart, FastAPI, TensorFlow, PyTorch, OpenCV, Docker, C++, and SQL.";
     } else if (lower.includes("dairy mitra")) {
