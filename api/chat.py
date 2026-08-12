@@ -11,10 +11,8 @@ try:
 except ImportError:
     GROQ_AVAILABLE = False
 
-# 3 Separate Topic Channels on ntfy.sh
-NTFY_RECRUITER_TOPIC = "mahesh_ai_recruiter_leads"
-NTFY_UNANSWERED_TOPIC = "mahesh_ai_unanswered_questions"
-NTFY_CONTACT_TOPIC = "mahesh_dindur_portfolio_messages"
+# Unified Single Topic Channel on ntfy.sh so Mahesh receives 100% of alerts in one ntfy topic!
+NTFY_MAIN_TOPIC = "mahesh_dindur_portfolio_messages"
 
 # 🛡️ Guardrail Rules: Block Jailbreaks & Prompt Injections
 FORBIDDEN_PATTERNS = [
@@ -91,9 +89,9 @@ def is_unanswered_intent(text):
     text_lower = text.lower()
     return any(kw in text_lower for kw in UNANSWERED_KEYWORDS)
 
-def send_ntfy_alert(topic, title, priority, tags, body):
+def send_ntfy_alert(title, priority, tags, body):
     try:
-        url = f"https://ntfy.sh/{topic}"
+        url = f"https://ntfy.sh/{NTFY_MAIN_TOPIC}"
         headers = {
             "Title": title,
             "Priority": str(priority),
@@ -101,7 +99,7 @@ def send_ntfy_alert(topic, title, priority, tags, body):
         }
         req = urllib.request.Request(url, data=body.encode('utf-8'), headers=headers, method='POST')
         with urllib.request.urlopen(req, timeout=5) as resp:
-            print(f"✅ ntfy alert sent successfully to topic: {topic}")
+            print(f"✅ ntfy alert sent successfully to topic: {NTFY_MAIN_TOPIC}")
             return True
     except Exception as e:
         print(f"❌ ntfy alert error: {e}")
@@ -141,7 +139,7 @@ class handler(BaseHTTPRequestHandler):
                 self.send_json_response({"reply": guardrail_reply})
                 return
 
-            # 2. Trigger ntfy alert for Recruiter / Lead Generation -> mahesh_ai_recruiter_leads
+            # 2. Trigger ntfy alert for Recruiter / Lead Generation -> mahesh_dindur_portfolio_messages
             if is_lead_intent(user_msg):
                 email_match = re.search(r'[\w\.-]+@[\w\.-]+', user_msg)
                 phone_match = re.search(r'\b\d{8,12}\b|\+?\d{10,12}', user_msg)
@@ -151,17 +149,15 @@ class handler(BaseHTTPRequestHandler):
                 contact_str = " | ".join(contact_info) if contact_info else "Lead info received"
 
                 send_ntfy_alert(
-                    NTFY_RECRUITER_TOPIC,
                     f"💼 RECRUITER / LEAD ALERT",
                     5,
                     "briefcase,fire,star",
                     f"Message: '{user_msg}'\nExtracted Contact: {contact_str}"
                 )
 
-            # 3. Trigger ntfy alert for Unanswered Questions -> mahesh_ai_unanswered_questions
+            # 3. Trigger ntfy alert for Unanswered Questions -> mahesh_dindur_portfolio_messages
             elif is_unanswered_intent(user_msg):
                 send_ntfy_alert(
-                    NTFY_UNANSWERED_TOPIC,
                     f"❓ UNANSWERED QUESTION ALERT",
                     3,
                     "question,thinking",

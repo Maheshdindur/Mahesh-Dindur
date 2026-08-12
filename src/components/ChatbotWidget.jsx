@@ -20,10 +20,10 @@ export const ChatbotWidget = () => {
     scrollToBottom();
   }, [messages, loading]);
 
-  // Client-side backup ntfy trigger sent directly to topic channels
-  const sendClientNtfyAlert = async (topic, userMsg, title = '💼 RECRUITER / LEAD ALERT', tags = 'briefcase,fire,star') => {
+  // Client-side backup ntfy trigger sent directly to mahesh_dindur_portfolio_messages
+  const sendClientNtfyAlert = async (userMsg, title = '💼 RECRUITER / LEAD ALERT', tags = 'briefcase,fire,star') => {
     try {
-      await fetch(`https://ntfy.sh/${topic}`, {
+      await fetch('https://ntfy.sh/mahesh_dindur_portfolio_messages', {
         method: 'POST',
         headers: {
           'Title': title,
@@ -118,11 +118,11 @@ export const ChatbotWidget = () => {
 
     if (phoneMatch || emailMatch || recruiterKw) {
       setIsRecruiterMode(true);
-      // Guarantee ntfy push notification to mahesh_ai_recruiter_leads
-      sendClientNtfyAlert('mahesh_ai_recruiter_leads', query, '💼 RECRUITER / LEAD ALERT', 'briefcase,fire,star');
+      // Guarantee ntfy push notification to mahesh_dindur_portfolio_messages
+      sendClientNtfyAlert(query, '💼 RECRUITER / LEAD ALERT', 'briefcase,fire,star');
     } else if (unansweredKw) {
-      // Guarantee ntfy push notification to mahesh_ai_unanswered_questions
-      sendClientNtfyAlert('mahesh_ai_unanswered_questions', query, '❓ UNANSWERED QUESTION ALERT', 'question,thinking');
+      // Guarantee ntfy push notification to mahesh_dindur_portfolio_messages
+      sendClientNtfyAlert(query, '❓ UNANSWERED QUESTION ALERT', 'question,thinking');
     }
 
     try {
