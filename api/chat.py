@@ -3,15 +3,9 @@ import json
 import re
 import os
 import urllib.request
+import urllib.error
 
-# Check for Groq SDK availability
-try:
-    from groq import Groq
-    GROQ_AVAILABLE = True
-except ImportError:
-    GROQ_AVAILABLE = False
-
-# Unified Single Topic Channel on ntfy.sh so Mahesh receives 100% of alerts in one ntfy topic!
+# Unified Single Topic Channel on ntfy.sh
 NTFY_MAIN_TOPIC = "mahesh_dindur_portfolio_messages"
 
 # 🛡️ Guardrail Rules: Block Jailbreaks & Prompt Injections
@@ -99,10 +93,9 @@ def send_ntfy_alert(title, priority, tags, body):
         }
         req = urllib.request.Request(url, data=body.encode('utf-8'), headers=headers, method='POST')
         with urllib.request.urlopen(req, timeout=5) as resp:
-            print(f"✅ ntfy alert sent successfully to topic: {NTFY_MAIN_TOPIC}")
             return True
     except Exception as e:
-        print(f"❌ ntfy alert error: {e}")
+        print(f"ntfy alert error: {e}")
         return False
 
 def build_groq_messages(user_msg, chat_history):
@@ -116,6 +109,41 @@ def build_groq_messages(user_msg, chat_history):
     formatted_messages.append({"role": "user", "content": user_msg})
     return formatted_messages
 
+def call_groq_api(api_key, messages):
+    models_to_try = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+    
+    for model in models_to_try:
+        try:
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            payload = {
+                "model": model,
+                "messages": messages,
+                "temperature": 0.4,
+                "max_tokens": 350
+            }
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "User-Agent": "Mahesh-Portfolio-AI/1.0"
+            }
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers=headers,
+                method='POST'
+            )
+            with urllib.request.urlopen(req, timeout=10) as response:
+                if response.status == 200:
+                    resp_data = json.loads(response.read().decode('utf-8'))
+                    return resp_data["choices"][0]["message"]["content"]
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode('utf-8')
+            print(f"Groq API HTTP Error ({model}): {e.code} - {error_body}")
+        except Exception as e:
+            print(f"Groq API Error ({model}): {e}")
+            
+    return None
+
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
@@ -128,7 +156,7 @@ class handler(BaseHTTPRequestHandler):
         try:
             content_length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_length).decode('utf-8')
-            data = json.loads(body)
+            data = json.loads(body) if body else {}
 
             user_msg = data.get("message", "")
             chat_history = data.get("history", [])
@@ -164,26 +192,16 @@ class handler(BaseHTTPRequestHandler):
                     f"Visitor asked: '{user_msg}'"
                 )
 
-            # 4. Call Groq Llama 3 API if GROQ_API_KEY environment variable is set
+            # 4. Call Groq API if GROQ_API_KEY environment variable is set
             groq_api_key = os.environ.get("GROQ_API_KEY")
-            if GROQ_AVAILABLE and groq_api_key:
-                try:
-                    client = Groq(api_key=groq_api_key)
-                    groq_messages = build_groq_messages(user_msg, chat_history)
-
-                    completion = client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",
-                        messages=groq_messages,
-                        temperature=0.4,
-                        max_tokens=300
-                    )
-                    reply = completion.choices[0].message.content
-                    self.send_json_response({"reply": reply})
+            if groq_api_key:
+                groq_messages = build_groq_messages(user_msg, chat_history)
+                llm_reply = call_groq_api(groq_api_key, groq_messages)
+                if llm_reply:
+                    self.send_json_response({"reply": llm_reply, "source": "groq_llm"})
                     return
-                except Exception as groq_err:
-                    print(f"Groq API call error: {groq_err}")
 
-            # 5. Grounded First-Person Local Fallback Engine
+            # 5. Grounded First-Person Local Fallback Engine (when API Key is not set or network fails)
             user_lower = user_msg.lower().strip()
 
             if user_lower in ["hi", "hello", "hey", "hi there", "hello there", "start"]:
@@ -203,10 +221,10 @@ class handler(BaseHTTPRequestHandler):
             else:
                 reply = "Hello there! I'm Mahesh Dindur, welcome to my website! I'm a CS & AI/ML Engineer specializing in Agentic AI microservices, QA testing pipelines, and Flutter mobile apps. How can I help you today?"
 
-            self.send_json_response({"reply": reply})
+            self.send_json_response({"reply": reply, "source": "fallback"})
 
         except Exception as e:
-            self.send_json_response({"error": str(e)}, status_code=500)
+            self.send_json_response({"error": str(e), "reply": "Hello there! I'm Mahesh Dindur. How can I help you today?"}, status_code=500)
 
     def send_json_response(self, data, status_code=200):
         self.send_response(status_code)
