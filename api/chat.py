@@ -57,7 +57,7 @@ VERIFIED FACTS ABOUT YOU (MAHESH DINDUR):
   - Face Auth with Liveness Detection (128-D FaceNet embeddings + CNN anti-spoofing, 2025)
   - Vehicle Number Plate Detection (CNN + Tesseract OCR, 2023)
 - CORE SKILLS: Python, LLM Evals, RAG, LangGraph, Flutter, Dart, FastAPI, TensorFlow, PyTorch, OpenCV, Docker, C++, C, SQL.
-- STATUS: Actively open to full-time Software Engineering, AI/ML, and QA roles! Based in Karnataka / Bengaluru (Open to remote & relocation). Email: maheshdindur9740@gmail.com | GitHub: @MaheshDindur | LinkedIn: mahesh-dindur.
+- STATUS: I'm actively open to full-time Software Engineering, AI/ML, and QA roles! Based in Karnataka / Bengaluru (Open to remote & relocation). Email: maheshdindur9740@gmail.com | GitHub: @MaheshDindur | LinkedIn: https://www.linkedin.com/in/mahesh-dindur-20725724a/.
 """
 
 GROQ_TOOLS = [
