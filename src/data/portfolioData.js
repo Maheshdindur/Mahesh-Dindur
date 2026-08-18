@@ -63,8 +63,8 @@ export const portfolioData = {
         "Worked closely with Strategy & Ops teams to identify edge cases, report dataset inconsistencies, and streamline scalable annotation workflows.",
         "Engaged in client operations by participating in strategy discussions, conducting client calls, and coordinating key stakeholder meetings."
       ],
-      linkText: "View Internship Experience",
-      linkUrl: "https://linkedin.com/in/mahesh-dindur"
+      linkText: null,
+      linkUrl: null
     },
     {
       id: 2,

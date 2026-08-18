@@ -5,7 +5,7 @@ import os
 import urllib.request
 import urllib.error
 
-# Unified Single Topic Channel on ntfy.sh
+# Unified Topic Channel on ntfy.sh
 NTFY_MAIN_TOPIC = "mahesh_dindur_portfolio_messages"
 
 # 🛡️ Guardrail Rules: Block Jailbreaks & Prompt Injections
@@ -58,12 +58,44 @@ VERIFIED FACTS ABOUT YOU (MAHESH DINDUR):
 - CORE SKILLS: Python, LLM Evals, RAG, LangGraph, Flutter, Dart, FastAPI, TensorFlow, PyTorch, OpenCV, Docker, C++, C, SQL.
 - STATUS: I'm actively open to full-time Software Engineering, AI/ML, and QA roles! Based in Karnataka / Bengaluru (Open to remote & relocation). Email: maheshdindur9740@gmail.com | GitHub: @MaheshDindur | LinkedIn: mahesh-dindur.
 
-STRICT GUARDRAILS & INSTRUCTIONS:
-1. Speak ALWAYS as Mahesh Dindur ("I", "my"). Never refer to Mahesh in 3rd person.
-2. Keep responses brief, polite, and technical (maximum 2-4 sentences).
-3. If a recruiter asks about hiring, open positions, or provides their contact details (Name, Phone, Email), thank them warmly and confirm that I will reach out directly.
-4. If a question is outside your knowledge base or unrelated to your background, reply politely: "That's a great question! I don't have that specific detail right in my head right now, but I've just pinged myself on my phone to check! Feel free to email me directly at maheshdindur9740@gmail.com."
+FUNCTION CALLING & LEAD GENERATION INSTRUCTIONS:
+1. If the visitor is a recruiter, hiring manager, asks about hiring, job opportunities, salary, or provides their name, email, phone number, or company, you MUST call the `notify_mahesh_recruiter_lead` function tool.
+2. If the user asks a question about something you do not know or that is outside Mahesh's background/portfolio, you MUST call the `notify_mahesh_unanswered_question` function tool.
 """
+
+GROQ_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "notify_mahesh_recruiter_lead",
+            "description": "Call this tool whenever the visitor is a recruiter, offers an interview/job, or provides their name, email, phone number, company, or hiring details.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "visitor_name": {"type": "string", "description": "Name of the visitor/recruiter"},
+                    "company": {"type": "string", "description": "Company or organization name"},
+                    "contact_info": {"type": "string", "description": "Email address, phone number, or handle"},
+                    "job_details": {"type": "string", "description": "Role, job offer, or inquiry details"}
+                },
+                "required": ["job_details"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "notify_mahesh_unanswered_question",
+            "description": "Call this tool if the visitor asks an out-of-scope question that Mahesh does not have information about.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string", "description": "The unanswered question asked by the visitor"}
+                },
+                "required": ["question"]
+            }
+        }
+    }
+]
 
 def sanitize_input(text):
     text_lower = text.lower()
@@ -83,15 +115,23 @@ def is_unanswered_intent(text):
     text_lower = text.lower()
     return any(kw in text_lower for kw in UNANSWERED_KEYWORDS)
 
+# 100% reliable JSON-based ntfy dispatcher (immune to HTTP header encoding errors)
 def send_ntfy_alert(title, priority, tags, body):
     try:
-        url = f"https://ntfy.sh/{NTFY_MAIN_TOPIC}"
-        headers = {
-            "Title": title,
-            "Priority": str(priority),
-            "Tags": tags
+        url = "https://ntfy.sh"
+        payload = {
+            "topic": NTFY_MAIN_TOPIC,
+            "title": title,
+            "message": body,
+            "priority": priority,
+            "tags": tags
         }
-        req = urllib.request.Request(url, data=body.encode('utf-8'), headers=headers, method='POST')
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode('utf-8'),
+            headers={"Content-Type": "application/json"},
+            method='POST'
+        )
         with urllib.request.urlopen(req, timeout=5) as resp:
             return True
     except Exception as e:
@@ -130,11 +170,8 @@ def get_dynamic_groq_models(api_key):
         print(f"Error fetching dynamic models: {e}")
     return []
 
-def call_groq_api(api_key, messages):
-    # Dynamic list fetched directly from Groq account
+def call_groq_api_with_tools(api_key, messages):
     active_models = get_dynamic_groq_models(api_key)
-    
-    # Priority fallback list
     fallback_models = [
         "llama-3.3-70b-versatile",
         "llama-3.1-8b-instant",
@@ -142,12 +179,9 @@ def call_groq_api(api_key, messages):
         "llama3-70b-8192",
         "llama3-8b-8192",
         "mixtral-8x7b-32768",
-        "gemma2-9b-it",
-        "qwen-2.5-32b",
-        "deepseek-r1-distill-llama-70b"
+        "gemma2-9b-it"
     ]
     
-    # Combine dynamic models first, then fallback models
     models_to_try = []
     for m in active_models + fallback_models:
         if m not in models_to_try:
@@ -161,6 +195,8 @@ def call_groq_api(api_key, messages):
             payload = {
                 "model": model,
                 "messages": messages,
+                "tools": GROQ_TOOLS,
+                "tool_choice": "auto",
                 "temperature": 0.4,
                 "max_tokens": 350
             }
@@ -178,7 +214,49 @@ def call_groq_api(api_key, messages):
             with urllib.request.urlopen(req, timeout=10) as response:
                 if response.status == 200:
                     resp_data = json.loads(response.read().decode('utf-8'))
-                    return resp_data["choices"][0]["message"]["content"], model, None
+                    choice = resp_data["choices"][0]
+                    message = choice["message"]
+                    
+                    # Handle Tool Calls if generated by LLM
+                    tool_calls = message.get("tool_calls", [])
+                    if tool_calls:
+                        for tool in tool_calls:
+                            fn_name = tool.get("function", {}).get("name")
+                            fn_args = {}
+                            try:
+                                fn_args = json.loads(tool.get("function", {}).get("arguments", "{}"))
+                            except:
+                                pass
+                                
+                            if fn_name == "notify_mahesh_recruiter_lead":
+                                name = fn_args.get("visitor_name", "Recruiter")
+                                comp = fn_args.get("company", "Not specified")
+                                contact = fn_args.get("contact_info", "Not provided")
+                                details = fn_args.get("job_details", "")
+                                send_ntfy_alert(
+                                    "💼 RECRUITER / LEAD ALERT",
+                                    5,
+                                    ["briefcase", "fire", "star"],
+                                    f"Lead from: {name}\nCompany: {comp}\nContact: {contact}\nDetails: {details}"
+                                )
+                            elif fn_name == "notify_mahesh_unanswered_question":
+                                q = fn_args.get("question", "")
+                                send_ntfy_alert(
+                                    "❓ UNANSWERED QUESTION ALERT",
+                                    3,
+                                    ["question", "thinking"],
+                                    f"Visitor asked: {q}"
+                                )
+                                
+                    # If content is returned, use it; otherwise generate polite confirmation
+                    reply_content = message.get("content")
+                    if not reply_content:
+                        if tool_calls:
+                            reply_content = "Thank you so much for sharing that! I've logged your message and contact details to my personal notification feed, and I'll connect with you directly. Feel free to ask anything else about my projects or background!"
+                        else:
+                            reply_content = "Hello there! I'm Mahesh Dindur, welcome to my website! How can I help you today?"
+                            
+                    return reply_content, model, None
         except urllib.error.HTTPError as e:
             error_body = e.read().decode('utf-8')
             errors.append(f"{model}: HTTP {e.code} - {error_body}")
@@ -210,7 +288,7 @@ class handler(BaseHTTPRequestHandler):
                 self.send_json_response({"reply": guardrail_reply, "source": "guardrail"})
                 return
 
-            # 2. Trigger ntfy alert for Recruiter / Lead Generation -> mahesh_dindur_portfolio_messages
+            # 2. Instant Lead / Contact Backup Detection via Regex
             if is_lead_intent(user_msg):
                 email_match = re.search(r'[\w\.-]+@[\w\.-]+', user_msg)
                 phone_match = re.search(r'\b\d{8,12}\b|\+?\d{10,12}', user_msg)
@@ -220,33 +298,33 @@ class handler(BaseHTTPRequestHandler):
                 contact_str = " | ".join(contact_info) if contact_info else "Lead info received"
 
                 send_ntfy_alert(
-                    f"💼 RECRUITER / LEAD ALERT",
+                    "💼 RECRUITER / LEAD ALERT",
                     5,
-                    "briefcase,fire,star",
+                    ["briefcase", "fire", "star"],
                     f"Message: '{user_msg}'\nExtracted Contact: {contact_str}"
                 )
 
-            # 3. Trigger ntfy alert for Unanswered Questions -> mahesh_dindur_portfolio_messages
+            # 3. Instant Unanswered Question Backup Detection
             elif is_unanswered_intent(user_msg):
                 send_ntfy_alert(
-                    f"❓ UNANSWERED QUESTION ALERT",
+                    "❓ UNANSWERED QUESTION ALERT",
                     3,
-                    "question,thinking",
+                    ["question", "thinking"],
                     f"Visitor asked: '{user_msg}'"
                 )
 
-            # 4. Call Groq API if GROQ_API_KEY environment variable is set
+            # 4. Call Groq API with Tool Calling (Function Calling)
             groq_api_key = os.environ.get("GROQ_API_KEY") or os.environ.get("groq_api_key")
             api_err = None
             used_model = None
             if groq_api_key:
                 groq_messages = build_groq_messages(user_msg, chat_history)
-                llm_reply, used_model, api_err = call_groq_api(groq_api_key, groq_messages)
+                llm_reply, used_model, api_err = call_groq_api_with_tools(groq_api_key, groq_messages)
                 if llm_reply:
                     self.send_json_response({"reply": llm_reply, "source": "groq_llm", "model": used_model})
                     return
 
-            # 5. Grounded First-Person Local Fallback Engine (when API Key is not set or network fails)
+            # 5. Grounded First-Person Local Fallback Engine
             user_lower = user_msg.lower().strip()
 
             if user_lower in ["hi", "hello", "hey", "hi there", "hello there", "start"]:
