@@ -111,6 +111,7 @@ def build_groq_messages(user_msg, chat_history):
 
 def call_groq_api(api_key, messages):
     models_to_try = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+    errors = []
     
     for model in models_to_try:
         try:
@@ -122,7 +123,7 @@ def call_groq_api(api_key, messages):
                 "max_tokens": 350
             }
             headers = {
-                "Authorization": f"Bearer {api_key}",
+                "Authorization": f"Bearer {api_key.strip()}",
                 "Content-Type": "application/json",
                 "User-Agent": "Mahesh-Portfolio-AI/1.0"
             }
@@ -135,14 +136,14 @@ def call_groq_api(api_key, messages):
             with urllib.request.urlopen(req, timeout=10) as response:
                 if response.status == 200:
                     resp_data = json.loads(response.read().decode('utf-8'))
-                    return resp_data["choices"][0]["message"]["content"]
+                    return resp_data["choices"][0]["message"]["content"], None
         except urllib.error.HTTPError as e:
             error_body = e.read().decode('utf-8')
-            print(f"Groq API HTTP Error ({model}): {e.code} - {error_body}")
+            errors.append(f"{model}: HTTP {e.code} - {error_body}")
         except Exception as e:
-            print(f"Groq API Error ({model}): {e}")
+            errors.append(f"{model}: {str(e)}")
             
-    return None
+    return None, "; ".join(errors)
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -164,7 +165,7 @@ class handler(BaseHTTPRequestHandler):
             # 1. Anti-Jailbreak Guardrail Check
             is_safe, guardrail_reply = sanitize_input(user_msg)
             if not is_safe:
-                self.send_json_response({"reply": guardrail_reply})
+                self.send_json_response({"reply": guardrail_reply, "source": "guardrail"})
                 return
 
             # 2. Trigger ntfy alert for Recruiter / Lead Generation -> mahesh_dindur_portfolio_messages
@@ -193,10 +194,11 @@ class handler(BaseHTTPRequestHandler):
                 )
 
             # 4. Call Groq API if GROQ_API_KEY environment variable is set
-            groq_api_key = os.environ.get("GROQ_API_KEY")
+            groq_api_key = os.environ.get("GROQ_API_KEY") or os.environ.get("groq_api_key")
+            api_err = None
             if groq_api_key:
                 groq_messages = build_groq_messages(user_msg, chat_history)
-                llm_reply = call_groq_api(groq_api_key, groq_messages)
+                llm_reply, api_err = call_groq_api(groq_api_key, groq_messages)
                 if llm_reply:
                     self.send_json_response({"reply": llm_reply, "source": "groq_llm"})
                     return
@@ -221,7 +223,11 @@ class handler(BaseHTTPRequestHandler):
             else:
                 reply = "Hello there! I'm Mahesh Dindur, welcome to my website! I'm a CS & AI/ML Engineer specializing in Agentic AI microservices, QA testing pipelines, and Flutter mobile apps. How can I help you today?"
 
-            self.send_json_response({"reply": reply, "source": "fallback"})
+            diag = {
+                "key_present": bool(groq_api_key),
+                "error": api_err if api_err else "GROQ_API_KEY not found in environment"
+            }
+            self.send_json_response({"reply": reply, "source": "fallback", "debug": diag})
 
         except Exception as e:
             self.send_json_response({"error": str(e), "reply": "Hello there! I'm Mahesh Dindur. How can I help you today?"}, status_code=500)
