@@ -109,8 +109,50 @@ def build_groq_messages(user_msg, chat_history):
     formatted_messages.append({"role": "user", "content": user_msg})
     return formatted_messages
 
+def get_dynamic_groq_models(api_key):
+    try:
+        url = "https://api.groq.com/openai/v1/models"
+        headers = {
+            "Authorization": f"Bearer {api_key.strip()}",
+            "Content-Type": "application/json",
+            "User-Agent": "Mahesh-Portfolio-AI/1.0"
+        }
+        req = urllib.request.Request(url, headers=headers, method='GET')
+        with urllib.request.urlopen(req, timeout=5) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode('utf-8'))
+                models = [
+                    m["id"] for m in data.get("data", [])
+                    if "whisper" not in m.get("id", "").lower() and "embed" not in m.get("id", "").lower()
+                ]
+                return models
+    except Exception as e:
+        print(f"Error fetching dynamic models: {e}")
+    return []
+
 def call_groq_api(api_key, messages):
-    models_to_try = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+    # Dynamic list fetched directly from Groq account
+    active_models = get_dynamic_groq_models(api_key)
+    
+    # Priority fallback list
+    fallback_models = [
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "llama-3.1-70b-versatile",
+        "llama3-70b-8192",
+        "llama3-8b-8192",
+        "mixtral-8x7b-32768",
+        "gemma2-9b-it",
+        "qwen-2.5-32b",
+        "deepseek-r1-distill-llama-70b"
+    ]
+    
+    # Combine dynamic models first, then fallback models
+    models_to_try = []
+    for m in active_models + fallback_models:
+        if m not in models_to_try:
+            models_to_try.append(m)
+            
     errors = []
     
     for model in models_to_try:
@@ -136,14 +178,14 @@ def call_groq_api(api_key, messages):
             with urllib.request.urlopen(req, timeout=10) as response:
                 if response.status == 200:
                     resp_data = json.loads(response.read().decode('utf-8'))
-                    return resp_data["choices"][0]["message"]["content"], None
+                    return resp_data["choices"][0]["message"]["content"], model, None
         except urllib.error.HTTPError as e:
             error_body = e.read().decode('utf-8')
             errors.append(f"{model}: HTTP {e.code} - {error_body}")
         except Exception as e:
             errors.append(f"{model}: {str(e)}")
             
-    return None, "; ".join(errors)
+    return None, None, "; ".join(errors)
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -196,11 +238,12 @@ class handler(BaseHTTPRequestHandler):
             # 4. Call Groq API if GROQ_API_KEY environment variable is set
             groq_api_key = os.environ.get("GROQ_API_KEY") or os.environ.get("groq_api_key")
             api_err = None
+            used_model = None
             if groq_api_key:
                 groq_messages = build_groq_messages(user_msg, chat_history)
-                llm_reply, api_err = call_groq_api(groq_api_key, groq_messages)
+                llm_reply, used_model, api_err = call_groq_api(groq_api_key, groq_messages)
                 if llm_reply:
-                    self.send_json_response({"reply": llm_reply, "source": "groq_llm"})
+                    self.send_json_response({"reply": llm_reply, "source": "groq_llm", "model": used_model})
                     return
 
             # 5. Grounded First-Person Local Fallback Engine (when API Key is not set or network fails)
