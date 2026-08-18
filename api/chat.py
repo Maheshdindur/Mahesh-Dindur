@@ -35,20 +35,21 @@ UNANSWERED_KEYWORDS = [
 ]
 
 MAHESH_SYSTEM_PROMPT = """
-YOU ARE MAHESH DINDUR. YOU ARE SPEAKING DIRECTLY TO THE VISITOR AS YOURSELF IN THE FIRST PERSON ("I", "my", "me").
+YOU ARE MAHESH DINDUR. You are speaking directly to the website visitor as yourself in the first person ("I", "my", "me").
 DO NOT act as a third-person assistant. YOU ARE MAHESH DINDUR.
 
 CORE PERSONA & VOICE:
-- Speak as Mahesh Dindur: authentic, technical, warm, enthusiastic, and concise (2 to 4 sentences MAX per response).
-- Speak in the first person about your software engineering, AI agents, computer vision, QA, and Flutter mobile apps.
+- Speak as Mahesh Dindur: authentic, technical, conversational, warm, and concise (2 to 4 sentences per response).
+- Speak naturally and adapt to the user's specific message.
+- If the visitor just says "hi", welcome them warmly to your portfolio.
+- If the visitor provides a phone number, email, or asks to connect/call/hire you (even if they start with "hi"), acknowledge their contact info warmly, confirm you will reach out to them, and call the `notify_mahesh_recruiter_lead` tool!
 
 VERIFIED FACTS ABOUT YOU (MAHESH DINDUR):
-- GREETING FOR HI/HELLO: "Hello there! I'm Mahesh Dindur, welcome to my website! How can I help you today?"
-- EDUCATION: I completed my B.E. in Computer Science Engineering from KLE Technological University (2021-2025, 7.95 CGPA). I scored 100% in PUC II Science from Vagdevi PU Science College and 96.8% in Class X.
+- EDUCATION: B.E. in Computer Science Engineering from KLE Technological University (2021-2025, 7.95 CGPA). 100% in PUC II Science from Vagdevi PU Science College and 96.8% in Class X.
 - EXPERIENCE:
-  1. QA Intern @ Scaler AI Labs (March 2024 - June 2024, Bengaluru Onsite): I audited & validated LLM training datasets from external vendors for tier-1 AI companies (OpenAI, xAI). I performed model output quality analysis, edge-case evaluation, and worked with Strategy & Ops.
-  2. Open Source Contributor @ Ed Donner Agentic AI Repo (2024): I built the FastAPI CareerWise chatbot microservice merged into a 250k+ student codebase (PR #485).
-  3. Freelance Flutter Developer @ Dairy Mitra (2024-2025): I built a custom cross-platform Flutter mobile app for a private client to digitize cattle management & milk yield analytics (Offline SQLite, Client NDA).
+  1. QA Intern @ Scaler AI Labs (March 2024 - June 2024, Bengaluru Onsite): Audited & validated LLM training datasets from external vendors for tier-1 AI companies (OpenAI, xAI). Analyzed model output quality, edge cases, and worked with Strategy & Ops.
+  2. Open Source Contributor @ Ed Donner Agentic AI Repo (2024): Built the FastAPI CareerWise chatbot microservice merged into a 250k+ student codebase (PR #485).
+  3. Freelance Flutter Developer @ Dairy Mitra (2024-2025): Built a custom cross-platform Flutter mobile app for a private client to digitize cattle management & milk yield analytics (Offline SQLite, Client NDA).
 - FEATURED PROJECTS:
   - CareerWise (Gemini + FastAPI + GCP Cloud Run, 2026, PR #485)
   - Argus — Serverless Code Guardian (GitHub Actions security bot, Gemini 2.5, 2026)
@@ -56,11 +57,7 @@ VERIFIED FACTS ABOUT YOU (MAHESH DINDUR):
   - Face Auth with Liveness Detection (128-D FaceNet embeddings + CNN anti-spoofing, 2025)
   - Vehicle Number Plate Detection (CNN + Tesseract OCR, 2023)
 - CORE SKILLS: Python, LLM Evals, RAG, LangGraph, Flutter, Dart, FastAPI, TensorFlow, PyTorch, OpenCV, Docker, C++, C, SQL.
-- STATUS: I'm actively open to full-time Software Engineering, AI/ML, and QA roles! Based in Karnataka / Bengaluru (Open to remote & relocation). Email: maheshdindur9740@gmail.com | GitHub: @MaheshDindur | LinkedIn: mahesh-dindur.
-
-FUNCTION CALLING & LEAD GENERATION INSTRUCTIONS:
-1. If the visitor is a recruiter, hiring manager, asks about hiring, job opportunities, salary, or provides their name, email, phone number, or company, you MUST call the `notify_mahesh_recruiter_lead` function tool.
-2. If the user asks a question about something you do not know or that is outside Mahesh's background/portfolio, you MUST call the `notify_mahesh_unanswered_question` function tool.
+- STATUS: Actively open to full-time Software Engineering, AI/ML, and QA roles! Based in Karnataka / Bengaluru (Open to remote & relocation). Email: maheshdindur9740@gmail.com | GitHub: @MaheshDindur | LinkedIn: mahesh-dindur.
 """
 
 GROQ_TOOLS = [
@@ -68,14 +65,14 @@ GROQ_TOOLS = [
         "type": "function",
         "function": {
             "name": "notify_mahesh_recruiter_lead",
-            "description": "Call this tool whenever the visitor is a recruiter, offers an interview/job, or provides their name, email, phone number, company, or hiring details.",
+            "description": "Call this tool whenever the visitor is a recruiter, offers an interview/job, wants to connect, or provides their name, email, phone number, company, or hiring details.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "visitor_name": {"type": "string", "description": "Name of the visitor/recruiter"},
+                    "visitor_name": {"type": "string", "description": "Name of the visitor or recruiter"},
                     "company": {"type": "string", "description": "Company or organization name"},
-                    "contact_info": {"type": "string", "description": "Email address, phone number, or handle"},
-                    "job_details": {"type": "string", "description": "Role, job offer, or inquiry details"}
+                    "contact_info": {"type": "string", "description": "Email address or phone number"},
+                    "job_details": {"type": "string", "description": "Role, phone call request, job offer, or inquiry details"}
                 },
                 "required": ["job_details"]
             }
@@ -115,7 +112,7 @@ def is_unanswered_intent(text):
     text_lower = text.lower()
     return any(kw in text_lower for kw in UNANSWERED_KEYWORDS)
 
-# 100% reliable JSON-based ntfy dispatcher (immune to HTTP header encoding errors)
+# 100% reliable JSON-based ntfy dispatcher
 def send_ntfy_alert(title, priority, tags, body):
     try:
         url = "https://ntfy.sh"
@@ -219,6 +216,8 @@ def call_groq_api_with_tools(api_key, messages):
                     
                     # Handle Tool Calls if generated by LLM
                     tool_calls = message.get("tool_calls", [])
+                    extracted_details = None
+                    
                     if tool_calls:
                         for tool in tool_calls:
                             fn_name = tool.get("function", {}).get("name")
@@ -229,10 +228,11 @@ def call_groq_api_with_tools(api_key, messages):
                                 pass
                                 
                             if fn_name == "notify_mahesh_recruiter_lead":
-                                name = fn_args.get("visitor_name", "Recruiter")
+                                name = fn_args.get("visitor_name", "Visitor")
                                 comp = fn_args.get("company", "Not specified")
                                 contact = fn_args.get("contact_info", "Not provided")
                                 details = fn_args.get("job_details", "")
+                                extracted_details = f"Phone/Email: {contact}" if contact != "Not provided" else ""
                                 send_ntfy_alert(
                                     "💼 RECRUITER / LEAD ALERT",
                                     5,
@@ -248,13 +248,34 @@ def call_groq_api_with_tools(api_key, messages):
                                     f"Visitor asked: {q}"
                                 )
                                 
-                    # If content is returned, use it; otherwise generate polite confirmation
                     reply_content = message.get("content")
                     if not reply_content:
-                        if tool_calls:
-                            reply_content = "Thank you so much for sharing that! I've logged your message and contact details to my personal notification feed, and I'll connect with you directly. Feel free to ask anything else about my projects or background!"
-                        else:
-                            reply_content = "Hello there! I'm Mahesh Dindur, welcome to my website! How can I help you today?"
+                        # Perform a natural second-turn response if tool call had no message content
+                        tool_msg = message
+                        follow_up_messages = list(messages) + [
+                            tool_msg,
+                            {
+                                "role": "tool",
+                                "tool_call_id": tool_calls[0]["id"] if tool_calls else "call_1",
+                                "content": "Notification sent successfully to Mahesh's phone."
+                            }
+                        ]
+                        try:
+                            req_2 = urllib.request.Request(
+                                url,
+                                data=json.dumps({"model": model, "messages": follow_up_messages, "temperature": 0.4, "max_tokens": 250}).encode('utf-8'),
+                                headers=headers,
+                                method='POST'
+                            )
+                            with urllib.request.urlopen(req_2, timeout=8) as resp_2:
+                                if resp_2.status == 200:
+                                    d2 = json.loads(resp_2.read().decode('utf-8'))
+                                    reply_content = d2["choices"][0]["message"].get("content")
+                        except Exception as e2:
+                            print(f"Follow-up turn error: {e2}")
+
+                    if not reply_content:
+                        reply_content = f"Thank you for sharing your contact info! I've logged your message to my direct alert feed, and I'll connect with you directly. Let me know if there's anything else you'd like to discuss!"
                             
                     return reply_content, model, None
         except urllib.error.HTTPError as e:
@@ -324,7 +345,7 @@ class handler(BaseHTTPRequestHandler):
                     self.send_json_response({"reply": llm_reply, "source": "groq_llm", "model": used_model})
                     return
 
-            # 5. Grounded First-Person Local Fallback Engine
+            # 5. Grounded First-Person Local Fallback Engine (when API Key is not set or network fails)
             user_lower = user_msg.lower().strip()
 
             if user_lower in ["hi", "hello", "hey", "hi there", "hello there", "start"]:
