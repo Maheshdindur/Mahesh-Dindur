@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, MessageSquare, X, Send, Sparkles, User, Briefcase, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Bot, MessageSquare, X, Send, Sparkles, User, Briefcase, RefreshCw, CheckCircle2, Minus, ChevronDown } from 'lucide-react';
 import { portfolioData } from '../data/portfolioData';
 
 export const ChatbotWidget = () => {
@@ -9,6 +9,7 @@ export const ChatbotWidget = () => {
   const [loading, setLoading] = useState(false);
   const [isRecruiterMode, setIsRecruiterMode] = useState(false);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
+  const [showLandingTooltip, setShowLandingTooltip] = useState(false);
 
   const messagesEndRef = useRef(null);
 
@@ -21,23 +22,25 @@ export const ChatbotWidget = () => {
   }, [messages, loading]);
 
   // Client-side backup ntfy trigger sent directly to mahesh_dindur_portfolio_messages
-  const sendClientNtfyAlert = async (userMsg, title = '💼 RECRUITER / LEAD ALERT', tags = 'briefcase,fire,star') => {
+  const sendClientNtfyAlert = async (userMsg, title = '💼 RECRUITER / LEAD ALERT', tags = ['briefcase', 'fire', 'star']) => {
     try {
-      await fetch('https://ntfy.sh/mahesh_dindur_portfolio_messages', {
+      await fetch('https://ntfy.sh', {
         method: 'POST',
-        headers: {
-          'Title': title,
-          'Priority': '5',
-          'Tags': tags
-        },
-        body: `Visitor Message: ${userMsg}`
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: 'mahesh_dindur_portfolio_messages',
+          title: title,
+          message: `Visitor Message: ${userMsg}`,
+          priority: 5,
+          tags: tags
+        })
       });
     } catch (err) {
       console.error('Client ntfy alert error:', err);
     }
   };
 
-  // Silent "hi" trigger on landing -> Auto-opens chat window with LLM response
+  // Silent "hi" trigger on landing -> Sets greeting & displays preview
   useEffect(() => {
     let isMounted = true;
     const triggerLandingGreeting = async () => {
@@ -61,11 +64,16 @@ export const ChatbotWidget = () => {
           // Add AI greeting to transcript (Initial "hi" is 100% hidden)
           setMessages([{ sender: 'ai', text: aiReply }]);
 
-          // Auto-open chatbot window on landing when AI response returns
           if (!hasAutoOpened) {
             setTimeout(() => {
               if (isMounted) {
-                setIsOpen(true);
+                // On desktop (> 768px), auto-open the chat window
+                // On mobile (<= 768px), show the interactive floating preview tooltip so it doesn't take over the screen
+                if (window.innerWidth > 768) {
+                  setIsOpen(true);
+                } else {
+                  setShowLandingTooltip(true);
+                }
                 setHasAutoOpened(true);
               }
             }, 800);
@@ -77,7 +85,11 @@ export const ChatbotWidget = () => {
           if (!hasAutoOpened) {
             setTimeout(() => {
               if (isMounted) {
-                setIsOpen(true);
+                if (window.innerWidth > 768) {
+                  setIsOpen(true);
+                } else {
+                  setShowLandingTooltip(true);
+                }
                 setHasAutoOpened(true);
               }
             }, 800);
@@ -95,7 +107,7 @@ export const ChatbotWidget = () => {
   const quickPrompts = [
     "Tell me about yourself",
     "What AI projects have you built?",
-    "Tell me about Scaler AI Labs QA internship",
+    "Scaler AI Labs QA internship",
     "Are you open for full-time roles?"
   ];
 
@@ -118,11 +130,9 @@ export const ChatbotWidget = () => {
 
     if (phoneMatch || emailMatch || recruiterKw) {
       setIsRecruiterMode(true);
-      // Guarantee ntfy push notification to mahesh_dindur_portfolio_messages
-      sendClientNtfyAlert(query, '💼 RECRUITER / LEAD ALERT', 'briefcase,fire,star');
+      sendClientNtfyAlert(query, '💼 RECRUITER / LEAD ALERT', ['briefcase', 'fire', 'star']);
     } else if (unansweredKw) {
-      // Guarantee ntfy push notification to mahesh_dindur_portfolio_messages
-      sendClientNtfyAlert(query, '❓ UNANSWERED QUESTION ALERT', 'question,thinking');
+      sendClientNtfyAlert(query, '❓ UNANSWERED QUESTION ALERT', ['question', 'thinking']);
     }
 
     try {
@@ -193,12 +203,40 @@ export const ChatbotWidget = () => {
     simulateTokenStream(reply);
   };
 
+  const handleOpenChat = () => {
+    setIsOpen(true);
+    setShowLandingTooltip(false);
+  };
+
   return (
     <>
+      {/* Floating Landing Tooltip (Shows on mobile when minimized so it never blocks the page) */}
+      {!isOpen && showLandingTooltip && (
+        <div className="chatbot-landing-tooltip" onClick={handleOpenChat}>
+          <div className="tooltip-content">
+            <span className="tooltip-avatar-badge">👋</span>
+            <span className="tooltip-text">Hi, I'm Mahesh! Ask me anything</span>
+          </div>
+          <button
+            className="tooltip-close-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowLandingTooltip(false);
+            }}
+            aria-label="Dismiss tooltip"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
+
       {/* Floating Toggle Button */}
       <button
         className="chatbot-fab"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen(!isOpen);
+          setShowLandingTooltip(false);
+        }}
         aria-label="Talk with Mahesh Dindur AI"
       >
         <div className="fab-avatar-badge">
@@ -209,45 +247,60 @@ export const ChatbotWidget = () => {
           />
           <span className="fab-online-dot" />
         </div>
-        <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>Chat with Mahesh</span>
+        <span className="fab-label">Chat with Mahesh</span>
         <Sparkles size={16} style={{ color: 'var(--accent-warm)' }} />
       </button>
 
-      {/* Chat Window Popup (Auto-opens on landing when AI greets) */}
+      {/* Chat Window Popup - Compact Mobile Floating Bottom Sheet */}
       {isOpen && (
         <div className="chatbot-window">
           {/* Header */}
           <div className="chatbot-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
               <div style={{ position: 'relative' }}>
                 <img
                   src={portfolioData.personal.photoUrl}
                   alt="Mahesh Dindur"
-                  style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-warm)' }}
+                  style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-warm)' }}
                 />
                 <span className="fab-online-dot" style={{ right: 0, bottom: 0 }} />
               </div>
               <div>
-                <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <h4 style={{ fontSize: '0.92rem', fontWeight: '800', color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span>Mahesh Dindur</span>
-                  <span className="bento-pill" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>AI Twin</span>
+                  <span className="bento-pill" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '0.6rem', padding: '0.1rem 0.35rem' }}>AI Twin</span>
                 </h4>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
-                  {isRecruiterMode ? '💼 Recruiter Lead Mode Active' : 'Online · Grounded Portfolio AI'}
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>
+                  {isRecruiterMode ? '💼 Recruiter Lead Active' : 'Online · Grounded Portfolio AI'}
                 </p>
               </div>
             </div>
 
-            <button className="modal-close-btn" onClick={() => setIsOpen(false)} style={{ position: 'static' }}>
-              <X size={18} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <button
+                className="chatbot-ctrl-btn"
+                onClick={() => setIsOpen(false)}
+                title="Minimize Chat"
+                aria-label="Minimize Chat"
+              >
+                <Minus size={16} />
+              </button>
+              <button
+                className="chatbot-ctrl-btn"
+                onClick={() => setIsOpen(false)}
+                title="Close Chat"
+                aria-label="Close Chat"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </div>
 
           {/* Recruiter Banner if active */}
           {isRecruiterMode && (
-            <div style={{ background: 'rgba(249, 115, 22, 0.12)', borderBottom: '1px solid rgba(249, 115, 22, 0.25)', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--accent-warm)' }}>
-              <Briefcase size={14} />
-              <span>Recruiter Lead Mode — Share your Name & Contact for priority response!</span>
+            <div style={{ background: 'rgba(249, 115, 22, 0.12)', borderBottom: '1px solid rgba(249, 115, 22, 0.25)', padding: '0.4rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.72rem', color: 'var(--accent-warm)' }}>
+              <Briefcase size={13} />
+              <span>Recruiter Lead Mode — Share your Name & Contact!</span>
             </div>
           )}
 
@@ -262,7 +315,7 @@ export const ChatbotWidget = () => {
                   <img
                     src={portfolioData.personal.photoUrl}
                     alt="Mahesh"
-                    style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                    style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
                   />
                 )}
 
@@ -301,13 +354,13 @@ export const ChatbotWidget = () => {
           >
             <input
               type="text"
-              placeholder="Ask me anything about my skills, projects, or roles..."
+              placeholder="Ask me anything..."
               className="chatbot-input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
             <button type="submit" disabled={!input.trim() || loading} className="chatbot-send-btn">
-              <Send size={16} />
+              <Send size={15} />
             </button>
           </form>
         </div>
