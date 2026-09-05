@@ -1,8 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 export const DynamicNatureBackground = () => {
   const canvasRef = useRef(null);
-  const [currentPhaseName, setCurrentPhaseName] = useState('Ocean Wave');
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -50,23 +49,17 @@ export const DynamicNatureBackground = () => {
       let nightAlpha = 0;
 
       if (cycleTime < 10) {
-        // Ocean phase transition
         oceanAlpha = 1;
         if (cycleTime < 2) oceanAlpha = cycleTime / 2;
         if (cycleTime > 8) oceanAlpha = (10 - cycleTime) / 2;
-        if (currentPhaseName !== '🌊 Ocean Current') setCurrentPhaseName('🌊 Ocean Current');
       } else if (cycleTime < 20) {
-        // Sunshine phase
         sunAlpha = 1;
         if (cycleTime < 12) sunAlpha = (cycleTime - 10) / 2;
         if (cycleTime > 18) sunAlpha = (20 - cycleTime) / 2;
-        if (currentPhaseName !== '🌅 Golden Sunshine') setCurrentPhaseName('🌅 Golden Sunshine');
       } else {
-        // Night sky phase
         nightAlpha = 1;
         if (cycleTime < 22) nightAlpha = (cycleTime - 20) / 2;
         if (cycleTime > 28) nightAlpha = (30 - cycleTime) / 2;
-        if (currentPhaseName !== '✨ Starry Night') setCurrentPhaseName('✨ Starry Night');
       }
 
       ctx.clearRect(0, 0, width, height);
@@ -80,7 +73,6 @@ export const DynamicNatureBackground = () => {
         ctx.save();
         ctx.globalAlpha = oceanAlpha * 0.75;
 
-        // Deep ocean gradient overlay
         const oceanBg = ctx.createLinearGradient(0, 0, width, height);
         oceanBg.addColorStop(0, 'rgba(10, 25, 47, 0.6)');
         oceanBg.addColorStop(0.5, 'rgba(12, 74, 96, 0.4)');
@@ -88,7 +80,6 @@ export const DynamicNatureBackground = () => {
         ctx.fillStyle = oceanBg;
         ctx.fillRect(0, 0, width, height);
 
-        // Animated ocean sine waves rolling left to right
         waveStep += 0.025;
 
         const drawWave = (yOffset, amplitude, frequency, speed, color1, color2) => {
@@ -120,7 +111,6 @@ export const DynamicNatureBackground = () => {
         ctx.save();
         ctx.globalAlpha = sunAlpha * 0.8;
 
-        // Golden hour gradient overlay
         const sunBg = ctx.createRadialGradient(width * 0.3, height * 0.4, 50, width * 0.3, height * 0.4, width * 0.8);
         sunBg.addColorStop(0, 'rgba(255, 120, 73, 0.35)');
         sunBg.addColorStop(0.4, 'rgba(249, 115, 22, 0.18)');
@@ -130,7 +120,6 @@ export const DynamicNatureBackground = () => {
         ctx.fillStyle = sunBg;
         ctx.fillRect(0, 0, width, height);
 
-        // Soft sun orb glow
         ctx.beginPath();
         const sunGlow = ctx.createRadialGradient(width * 0.25, height * 0.35, 10, width * 0.25, height * 0.35, 180);
         sunGlow.addColorStop(0, 'rgba(255, 183, 3, 0.6)');
@@ -148,7 +137,6 @@ export const DynamicNatureBackground = () => {
         ctx.save();
         ctx.globalAlpha = nightAlpha * 0.85;
 
-        // Deep cosmic background
         const nightBg = ctx.createRadialGradient(width * 0.7, height * 0.3, 50, width * 0.5, height * 0.5, width);
         nightBg.addColorStop(0, 'rgba(168, 85, 247, 0.2)');
         nightBg.addColorStop(0.5, 'rgba(15, 23, 42, 0.5)');
@@ -157,17 +145,15 @@ export const DynamicNatureBackground = () => {
         ctx.fillStyle = nightBg;
         ctx.fillRect(0, 0, width, height);
 
-        // Render twinkling stars
         stars.forEach((star) => {
           star.alpha += star.speed;
-          const alphaVal = (Math.sin(star.alpha) + 1) / 2; // Smooth 0 to 1 cycle
+          const alphaVal = (Math.sin(star.alpha) + 1) / 2;
           ctx.fillStyle = `rgba(248, 250, 252, ${alphaVal * 0.85})`;
           ctx.beginPath();
           ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
           ctx.fill();
         });
 
-        // Spawn occasional shooting stars
         if (Math.random() < 0.02 && shootingStars.length < 3) {
           shootingStars.push({
             x: Math.random() * width,
@@ -179,7 +165,6 @@ export const DynamicNatureBackground = () => {
           });
         }
 
-        // Draw shooting stars
         for (let i = shootingStars.length - 1; i >= 0; i--) {
           const s = shootingStars[i];
           ctx.strokeStyle = `rgba(224, 242, 254, ${s.alpha})`;
@@ -213,43 +198,16 @@ export const DynamicNatureBackground = () => {
   }, []);
 
   return (
-    <>
-      <canvas
-        ref={canvasRef}
-        style={{
-          position: 'fixed',
-          inset: 0,
-          pointerEvents: 'none',
-          zIndex: 0,
-          width: '100vw',
-          height: '100vh'
-        }}
-      />
-      {/* Small phase indicator pill at bottom left */}
-      <div
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          left: '20px',
-          zIndex: 1000,
-          fontFamily: 'var(--font-mono)',
-          fontSize: '0.7rem',
-          color: 'var(--text-muted)',
-          background: 'rgba(15, 19, 28, 0.75)',
-          backdropFilter: 'blur(12px)',
-          padding: '0.35rem 0.85rem',
-          borderRadius: '9999px',
-          border: '1px solid var(--border-subtle)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.4)',
-          pointerEvents: 'none'
-        }}
-      >
-        <span className="pulse-dot" style={{ width: '6px', height: '6px' }}></span>
-        <span>Environment Cycle: {currentPhaseName}</span>
-      </div>
-    </>
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        pointerEvents: 'none',
+        zIndex: 0,
+        width: '100vw',
+        height: '100vh'
+      }}
+    />
   );
 };

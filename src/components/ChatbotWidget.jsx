@@ -230,26 +230,28 @@ export const ChatbotWidget = () => {
         </div>
       )}
 
-      {/* Floating Toggle Button */}
-      <button
-        className="chatbot-fab"
-        onClick={() => {
-          setIsOpen(!isOpen);
-          setShowLandingTooltip(false);
-        }}
-        aria-label="Talk with Mahesh Dindur AI"
-      >
-        <div className="fab-avatar-badge">
-          <img
-            src={portfolioData.personal.photoUrl}
-            alt="Mahesh Dindur"
-            style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
-          />
-          <span className="fab-online-dot" />
-        </div>
-        <span className="fab-label">Chat with Mahesh</span>
-        <Sparkles size={16} style={{ color: 'var(--accent-warm)' }} />
-      </button>
+      {/* Floating Toggle Button (Hidden when chat window is open) */}
+      {!isOpen && (
+        <button
+          className="chatbot-fab"
+          onClick={() => {
+            setIsOpen(true);
+            setShowLandingTooltip(false);
+          }}
+          aria-label="Talk with Mahesh Dindur AI"
+        >
+          <div className="fab-avatar-badge">
+            <img
+              src={portfolioData.personal.photoUrl}
+              alt="Mahesh Dindur"
+              style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+            />
+            <span className="fab-online-dot" />
+          </div>
+          <span className="fab-label">Chat with Mahesh</span>
+          <Sparkles size={16} style={{ color: 'var(--accent-warm)' }} />
+        </button>
+      )}
 
       {/* Chat Window Popup - Compact Mobile Floating Bottom Sheet */}
       {isOpen && (
