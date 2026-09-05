@@ -8,6 +8,7 @@ export const Header = ({ onOpenContact, onOpenResume }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const audioRef = useRef(null);
   const audioCtxRef = useRef(null);
+  const menuRef = useRef(null);
 
   useEffect(() => {
     const updateTime = () => {
@@ -38,15 +39,25 @@ export const Header = ({ onOpenContact, onOpenResume }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Prevent background scroll when mobile menu is open
+  // Close menu when tapping outside
   useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target) &&
+        !e.target.closest('.mobile-menu-toggle')
+      ) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
     if (isMobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
     }
     return () => {
-      document.body.style.overflow = '';
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
     };
   }, [isMobileMenuOpen]);
 
@@ -90,6 +101,10 @@ export const Header = ({ onOpenContact, onOpenResume }) => {
 
   const handleNavClick = (e, href) => {
     setIsMobileMenuOpen(false);
+    const target = document.querySelector(href);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   return (
@@ -104,7 +119,15 @@ export const Header = ({ onOpenContact, onOpenResume }) => {
 
       <div className="nav-container">
         {/* Brand Logo */}
-        <a href="#" className="brand-logo" onClick={() => setIsMobileMenuOpen(false)}>
+        <a
+          href="#hero"
+          className="brand-logo"
+          onClick={(e) => {
+            e.preventDefault();
+            setIsMobileMenuOpen(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        >
           <div className="brand-avatar">MD</div>
           <div className="brand-info">
             <span className="brand-name">{portfolioData.personal.name}</span>
@@ -140,6 +163,7 @@ export const Header = ({ onOpenContact, onOpenResume }) => {
 
         {/* Desktop Nav Links */}
         <ul className="nav-menu">
+          <li><a href="#hero" className="nav-link">Home</a></li>
           <li><a href="#about" className="nav-link">About</a></li>
           <li><a href="#skills" className="nav-link">Skills</a></li>
           <li><a href="#experience" className="nav-link">Experience</a></li>
@@ -194,97 +218,83 @@ export const Header = ({ onOpenContact, onOpenResume }) => {
             aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={isMobileMenuOpen}
           >
-            {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </div>
 
-      {/* Mobile Navigation Drawer / Overlay */}
+      {/* Mobile Navigation Dropdown Card (Floating right under header, NEVER covering the screen) */}
       {isMobileMenuOpen && (
-        <div className="mobile-nav-overlay" onClick={() => setIsMobileMenuOpen(false)}>
-          <div className="mobile-nav-drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="mobile-nav-top-meta">
-              <span className="mobile-time-badge">
-                <span className="pulse-dot" style={{ width: '6px', height: '6px' }}></span>
-                {time || '12:00:00'} IST · Karnataka
-              </span>
-              <button
-                onClick={toggleLofi}
-                className="mobile-drawer-lofi"
+        <div className="mobile-nav-dropdown" ref={menuRef}>
+          <nav className="mobile-nav-links">
+            {[
+              { href: '#hero', num: '00', label: 'Home' },
+              { href: '#about', num: '01', label: 'About' },
+              { href: '#skills', num: '02', label: 'Skills' },
+              { href: '#experience', num: '03', label: 'Experience' },
+              { href: '#projects', num: '04', label: 'Projects' },
+              { href: '#education', num: '05', label: 'Education' },
+              { href: '#contact', num: '06', label: 'Contact' }
+            ].map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="mobile-nav-item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNavClick(e, item.href);
+                }}
               >
-                <Music size={14} />
-                <span>{isPlayingLofi ? 'Lofi Playing' : 'Play Lofi'}</span>
-              </button>
+                <span className="mobile-nav-num">{item.num}</span>
+                <span className="mobile-nav-label">{item.label}</span>
+                <ChevronRight size={14} className="mobile-nav-arrow" />
+              </a>
+            ))}
+          </nav>
+
+          <div className="mobile-dropdown-footer">
+            <div className="mobile-dropdown-socials">
+              <a
+                href={portfolioData.personal.github}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mobile-mini-icon"
+                title="GitHub"
+              >
+                <Github size={15} />
+              </a>
+              <a
+                href={portfolioData.personal.linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mobile-mini-icon"
+                title="LinkedIn"
+              >
+                <Linkedin size={15} />
+              </a>
             </div>
 
-            <nav className="mobile-nav-links">
-              {[
-                { href: '#about', num: '01', label: 'About' },
-                { href: '#skills', num: '02', label: 'Skills' },
-                { href: '#experience', num: '03', label: 'Experience' },
-                { href: '#projects', num: '04', label: 'Projects' },
-                { href: '#education', num: '05', label: 'Education' },
-                { href: '#contact', num: '06', label: 'Contact' }
-              ].map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  className="mobile-nav-item"
-                  onClick={(e) => handleNavClick(e, item.href)}
-                >
-                  <span className="mobile-nav-num">{item.num}</span>
-                  <span className="mobile-nav-label">{item.label}</span>
-                  <ChevronRight size={16} className="mobile-nav-arrow" />
-                </a>
-              ))}
-            </nav>
-
-            <div className="mobile-nav-bottom-actions">
-              <div className="mobile-social-row">
-                <a
-                  href={portfolioData.personal.github}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mobile-icon-btn"
-                  title="GitHub Profile"
-                >
-                  <Github size={18} />
-                  <span>GitHub</span>
-                </a>
-                <a
-                  href={portfolioData.personal.linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mobile-icon-btn"
-                  title="LinkedIn Profile"
-                >
-                  <Linkedin size={18} />
-                  <span>LinkedIn</span>
-                </a>
-              </div>
-
-              <div className="mobile-cta-row">
-                <button
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    onOpenResume?.();
-                  }}
-                  className="mobile-resume-btn"
-                >
-                  <FileText size={16} />
-                  <span>Resume</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    onOpenContact?.();
-                  }}
-                  className="mobile-sayhi-btn"
-                >
-                  <Mail size={16} />
-                  <span>Say hi</span>
-                </button>
-              </div>
+            <div className="mobile-dropdown-ctas">
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  onOpenResume?.();
+                }}
+                className="mobile-mini-btn"
+              >
+                <FileText size={13} />
+                <span>Resume</span>
+              </button>
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  onOpenContact?.();
+                }}
+                className="mobile-mini-btn highlight"
+              >
+                <Mail size={13} />
+                <span>Say hi</span>
+              </button>
             </div>
           </div>
         </div>

@@ -5,12 +5,19 @@ export const RevealOnScroll = ({
   className = '',
   animation = 'fade-up',
   delay = 0,
-  threshold = 0.15
+  threshold = 0.1
 }) => {
   const ref = useRef(null);
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      if (rect.top < window.innerHeight && rect.bottom >= 0) {
+        setIsVisible(true);
+      }
+    }
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
