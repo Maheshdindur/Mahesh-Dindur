@@ -70,7 +70,7 @@ export const portfolioData = {
       id: 2,
       role: "Open Source Contributor",
       company: "Ed Donner · Agentic AI Repository",
-      period: "2024",
+      period: "2025",
       location: "REMOTE",
       points: [
         "Engineered a production-ready AI chatbot microservice merged into a repo used by 250k+ students.",
