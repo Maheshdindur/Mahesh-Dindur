@@ -55,7 +55,7 @@ export const portfolioData = {
       id: 1,
       role: "QA Intern",
       company: "Scaler AI Labs",
-      period: "March 2024 – June 2024",
+      period: "March 2026 – June 2026",
       location: "BENGALURU, KARNATAKA (ONSITE)",
       points: [
         "Audited and validated high-stakes AI training datasets from vendors used for large-scale model development for tier-1 AI companies.",
